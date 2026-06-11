@@ -155,7 +155,7 @@ const initialRoleplays: Record<string, Roleplay> = {
   "JA_L101": { id: "rp-3", setup: "Chào hỏi gia đình homestay tại sân bay.", notes: "", goals: [] }
 };
 
-// Mini Audio Player Component
+ // Mini Audio Player Component
 interface MiniPlayerProps {
   url: string;
 }
@@ -197,15 +197,15 @@ const MiniAudioPlayer: React.FC<MiniPlayerProps> = ({ url }) => {
   };
 
   return (
-    <div className="flex items-center space-x-2 bg-stone-50 border border-stone-200/80 rounded-full py-1.5 px-3 max-w-[160px]">
+    <div className="flex items-center space-x-2 bg-stone-50 border border-stone-200/60 rounded-full py-1 px-2.5 max-w-[150px]">
       <button 
         onClick={togglePlay}
-        className="p-1 rounded-full bg-stone-800 text-white hover:bg-stone-700 hover:scale-105 active:scale-95 transition-all cursor-pointer"
+        className="p-1.5 rounded-full bg-stone-800 text-white hover:bg-stone-700 transition-colors duration-200 cursor-pointer"
       >
-        {isPlaying ? <Pause size={9} fill="white" /> : <Play size={9} fill="white" className="translate-x-[0.5px]" />}
+        {isPlaying ? <Pause size={8} fill="white" /> : <Play size={8} fill="white" className="translate-x-[0.5px]" />}
       </button>
       <div className="w-16 bg-stone-200 h-1 rounded-full overflow-hidden">
-        <div className="bg-stone-600 h-full transition-all duration-100" style={{ width: `${progress}%` }}></div>
+        <div className="bg-stone-600 h-full transition-all duration-150" style={{ width: `${progress}%` }}></div>
       </div>
     </div>
   );
@@ -441,25 +441,25 @@ export default function CurriculumDashboard() {
         <div>
           {/* Logo Brand */}
           <div className="p-6 border-b border-stone-100 flex items-center space-x-3">
-            <div className="h-8 w-8 rounded-lg bg-stone-900 flex items-center justify-center">
+            <div className="h-8 w-8 rounded-xl bg-stone-850 flex items-center justify-center">
               <Database className="text-white" size={14} />
             </div>
             <div>
-              <h1 className="text-sm font-bold font-serif text-stone-850">Yapsu Pipeline</h1>
-              <p className="text-[9px] text-stone-400 font-semibold tracking-wider uppercase">Curriculum Engine</p>
+              <h1 className="text-sm font-bold font-serif text-stone-800">Yapsu Pipeline</h1>
+              <p className="text-[9px] text-stone-500 font-semibold tracking-wider uppercase">Curriculum Engine</p>
             </div>
           </div>
 
           {/* Language Pair Selector */}
           <div className="p-4 border-b border-stone-100 bg-stone-50/40">
-            <label className="block text-[9px] text-stone-400 uppercase font-bold tracking-wider mb-2">
+            <label className="block text-[9px] text-stone-500 uppercase font-bold tracking-wider mb-2">
               Language Pair
             </label>
             <div className="relative">
               <select 
                 value={selectedPairId} 
                 onChange={(e) => setSelectedPairId(e.target.value)}
-                className="w-full bg-white border border-stone-200 rounded-lg py-2 pl-3 pr-8 text-xs text-stone-700 font-medium focus:outline-none focus:border-stone-400 transition-colors cursor-pointer appearance-none"
+                className="w-full bg-white border border-stone-200 rounded-xl py-2 pl-3 pr-8 text-xs text-stone-855 font-medium focus:outline-none focus:border-stone-400 transition-colors duration-200 cursor-pointer appearance-none"
               >
                 {mockLanguagePairs.map((pair) => (
                   <option key={pair.id} value={pair.id}>
@@ -467,7 +467,7 @@ export default function CurriculumDashboard() {
                   </option>
                 ))}
               </select>
-              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-stone-400">
+              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-stone-500">
                 <Globe size={12} />
               </div>
             </div>
@@ -475,7 +475,7 @@ export default function CurriculumDashboard() {
 
           {/* Lessons list */}
           <div className="p-4">
-            <div className="text-[9px] text-stone-400 uppercase font-bold tracking-wider mb-2 px-1">
+            <div className="text-[9px] text-stone-500 uppercase font-bold tracking-wider mb-2 px-1">
               Select Lesson
             </div>
             <div className="space-y-1">
@@ -485,14 +485,14 @@ export default function CurriculumDashboard() {
                   <button
                     key={lesson.id}
                     onClick={() => setSelectedLesson(lesson)}
-                    className={`w-full text-left p-3 rounded-lg border transition-all cursor-pointer relative group flex items-start space-x-3 ${
+                    className={`w-full text-left p-3.5 rounded-xl border transition-all duration-200 cursor-pointer relative group flex items-start space-x-3 ${
                       isSelected 
                         ? "bg-[#F8F7F5] border-stone-200/80" 
                         : "hover:bg-stone-50 border-transparent"
                     }`}
                   >
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-0.5">
+                      <div className="flex items-center justify-between mb-1">
                         <span className="text-[9px] font-mono font-bold text-stone-500">{lesson.lessonCode}</span>
                         <span className={`text-[8px] px-1.5 py-0.5 rounded font-semibold border ${
                           lesson.status === "published" 
@@ -500,7 +500,7 @@ export default function CurriculumDashboard() {
                             : "bg-amber-50 text-amber-700 border-amber-100"
                         }`}>{lesson.status}</span>
                       </div>
-                      <h4 className="text-xs font-bold text-stone-800 truncate group-hover:text-black font-serif">{lesson.title}</h4>
+                      <h4 className="text-xs font-bold text-stone-800 truncate group-hover:text-stone-800 font-serif">{lesson.title}</h4>
                       <p className="text-[10px] text-stone-500 truncate mt-0.5">{lesson.description}</p>
                     </div>
                   </button>
@@ -511,7 +511,7 @@ export default function CurriculumDashboard() {
         </div>
 
         {/* Sidebar Footer */}
-        <div className="p-4 border-t border-stone-100 bg-stone-50/30 flex items-center justify-between text-[10px] text-stone-400">
+        <div className="p-4 border-t border-stone-100 bg-stone-50/30 flex items-center justify-between text-[10px] text-stone-500">
           <div className="flex items-center space-x-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
             <span>Presentation Mockup Mode</span>
@@ -528,31 +528,31 @@ export default function CurriculumDashboard() {
         <header className="bg-white border-b border-stone-200/80 px-8 flex flex-col justify-end pt-4">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <div className="text-[9px] font-mono text-stone-400 uppercase font-bold tracking-wider">Active Workspace</div>
-              <h2 className="text-xl font-medium font-serif text-stone-900 flex items-center space-x-2 mt-0.5">
+              <div className="text-[9px] font-mono text-stone-500 uppercase font-bold tracking-wider">Active Workspace</div>
+              <h2 className="text-xl font-medium font-serif text-stone-800 flex items-center space-x-2 mt-0.5">
                 <span>{selectedLesson ? selectedLesson.title : "No Lesson Selected"}</span>
-                <span className="text-xs font-mono font-normal bg-stone-50 border border-stone-200/60 py-0.5 px-2 rounded text-stone-600">
+                <span className="text-xs font-mono font-normal bg-stone-50 border border-stone-200/60 py-0.5 px-2 rounded text-stone-500">
                   {activeLessonCode}
                 </span>
               </h2>
             </div>
             
             {/* Quick Stats Summary */}
-            <div className="flex space-x-6 text-xs bg-stone-50/80 p-2 rounded-lg border border-stone-200/60">
+            <div className="flex space-x-6 text-xs bg-stone-50/80 p-2 rounded-xl border border-stone-200/60">
               <div className="flex flex-col">
-                <span className="text-[9px] text-stone-400 uppercase font-bold">Total Rows</span>
-                <span className="text-xs font-bold text-stone-700">{currentRows.length}</span>
+                <span className="text-[9px] text-stone-500 uppercase font-bold">Total Rows</span>
+                <span className="text-xs font-bold text-stone-800">{currentRows.length}</span>
               </div>
               <span className="w-px bg-stone-200 my-1"></span>
               <div className="flex flex-col">
-                <span className="text-[9px] text-stone-400 uppercase font-bold">Vocabs / Sentences</span>
-                <span className="text-xs font-bold text-stone-700">
+                <span className="text-[9px] text-stone-500 uppercase font-bold">Vocabs / Sentences</span>
+                <span className="text-xs font-bold text-stone-800">
                   {currentRows.filter(r => r.code.includes("_V") || r.code.includes("_S")).length}
                 </span>
               </div>
               <span className="w-px bg-stone-200 my-1"></span>
               <div className="flex flex-col">
-                <span className="text-[9px] text-stone-400 uppercase font-bold">Audio Ready</span>
+                <span className="text-[9px] text-stone-500 uppercase font-bold">Audio Ready</span>
                 <span className="text-xs font-bold text-emerald-700">{currentRows.filter(s => s.ttsStatus === "success").length}</span>
               </div>
             </div>
@@ -562,10 +562,10 @@ export default function CurriculumDashboard() {
           <div className="flex space-x-2 -mb-px">
             <button
               onClick={() => setActiveTab("excel")}
-              className={`pb-3 px-4 font-serif font-medium text-xs border-b-2 transition-all flex items-center space-x-1.5 cursor-pointer ${
+              className={`pb-3 px-4 font-serif font-medium text-xs border-b-2 transition-colors duration-200 flex items-center space-x-1.5 cursor-pointer ${
                 activeTab === "excel"
-                  ? "border-stone-850 text-stone-900 font-semibold"
-                  : "border-transparent text-stone-400 hover:text-stone-600"
+                  ? "border-stone-800 text-stone-800 font-semibold"
+                  : "border-transparent text-stone-500 hover:text-stone-850"
               }`}
             >
               <Grid size={12} />
@@ -574,10 +574,10 @@ export default function CurriculumDashboard() {
             
             <button
               onClick={() => setActiveTab("tutor")}
-              className={`pb-3 px-4 font-serif font-medium text-xs border-b-2 transition-all flex items-center space-x-1.5 cursor-pointer ${
+              className={`pb-3 px-4 font-serif font-medium text-xs border-b-2 transition-colors duration-200 flex items-center space-x-1.5 cursor-pointer ${
                 activeTab === "tutor"
-                  ? "border-stone-850 text-stone-900 font-semibold"
-                  : "border-transparent text-stone-400 hover:text-stone-600"
+                  ? "border-stone-800 text-stone-800 font-semibold"
+                  : "border-transparent text-stone-500 hover:text-stone-850"
               }`}
             >
               <Volume2 size={12} />
@@ -586,10 +586,10 @@ export default function CurriculumDashboard() {
             
             <button
               onClick={() => setActiveTab("drills")}
-              className={`pb-3 px-4 font-serif font-medium text-xs border-b-2 transition-all flex items-center space-x-1.5 cursor-pointer ${
+              className={`pb-3 px-4 font-serif font-medium text-xs border-b-2 transition-colors duration-200 flex items-center space-x-1.5 cursor-pointer ${
                 activeTab === "drills"
-                  ? "border-stone-850 text-stone-900 font-semibold"
-                  : "border-transparent text-stone-400 hover:text-stone-600"
+                  ? "border-stone-800 text-stone-800 font-semibold"
+                  : "border-transparent text-stone-500 hover:text-stone-850"
               }`}
             >
               <Sliders size={12} />
@@ -598,10 +598,10 @@ export default function CurriculumDashboard() {
             
             <button
               onClick={() => setActiveTab("roleplay")}
-              className={`pb-3 px-4 font-serif font-medium text-xs border-b-2 transition-all flex items-center space-x-1.5 cursor-pointer ${
+              className={`pb-3 px-4 font-serif font-medium text-xs border-b-2 transition-colors duration-200 flex items-center space-x-1.5 cursor-pointer ${
                 activeTab === "roleplay"
-                  ? "border-stone-850 text-stone-900 font-semibold"
-                  : "border-transparent text-stone-400 hover:text-stone-600"
+                  ? "border-stone-800 text-stone-800 font-semibold"
+                  : "border-transparent text-stone-500 hover:text-stone-850"
               }`}
             >
               <MessageSquare size={12} />
@@ -618,7 +618,7 @@ export default function CurriculumDashboard() {
           {activeTab === "excel" && (
             <div className="space-y-6">
               
-              <div className="flex justify-between items-center bg-white p-6 border border-stone-200/85 rounded-xl">
+              <div className="flex justify-between items-center bg-white p-6 border border-stone-200/80 rounded-2xl">
                 <div>
                   <h3 className="text-sm font-bold text-stone-800 font-serif">Spreadsheet Editor Interface</h3>
                   <p className="text-[11px] text-stone-500 mt-0.5 font-sans">
@@ -630,28 +630,28 @@ export default function CurriculumDashboard() {
                 <div className="flex space-x-2 text-xs font-sans">
                   <button 
                     onClick={() => addExcelRow("tutor")}
-                    className="bg-white border border-stone-200 text-stone-700 hover:bg-stone-50 py-1.5 px-3 rounded-lg font-medium cursor-pointer transition-all flex items-center space-x-1"
+                    className="bg-white border border-stone-200 text-stone-700 hover:bg-stone-50 py-1.5 px-3 rounded-lg font-medium cursor-pointer transition-colors duration-200 flex items-center space-x-1"
                   >
                     <Plus size={11} />
                     <span>+ Tutor Card</span>
                   </button>
                   <button 
                     onClick={() => addExcelRow("vocab")}
-                    className="bg-stone-800 text-white hover:bg-stone-700 py-1.5 px-3 rounded-lg font-medium cursor-pointer transition-all flex items-center space-x-1"
+                    className="bg-stone-800 text-white hover:bg-stone-700 py-1.5 px-3 rounded-lg font-medium cursor-pointer transition-colors duration-200 flex items-center space-x-1 border border-stone-800"
                   >
                     <Plus size={11} />
                     <span>+ Vocab Card</span>
                   </button>
                   <button 
                     onClick={() => addExcelRow("sentence")}
-                    className="bg-white border border-stone-200 text-stone-700 hover:bg-stone-50 py-1.5 px-3 rounded-lg font-medium cursor-pointer transition-all flex items-center space-x-1"
+                    className="bg-white border border-stone-200 text-stone-700 hover:bg-stone-50 py-1.5 px-3 rounded-lg font-medium cursor-pointer transition-colors duration-200 flex items-center space-x-1"
                   >
                     <Plus size={11} />
                     <span>+ Sentence Card</span>
                   </button>
                   <button 
                     onClick={() => addExcelRow("grammar")}
-                    className="bg-white border border-stone-200 text-stone-700 hover:bg-stone-50 py-1.5 px-3 rounded-lg font-medium cursor-pointer transition-all flex items-center space-x-1"
+                    className="bg-white border border-stone-200 text-stone-700 hover:bg-stone-50 py-1.5 px-3 rounded-lg font-medium cursor-pointer transition-colors duration-200 flex items-center space-x-1"
                   >
                     <Plus size={11} />
                     <span>+ Grammar Card</span>
@@ -662,13 +662,13 @@ export default function CurriculumDashboard() {
               {/* Search / Toolbar */}
               <div className="flex justify-between items-center space-x-4">
                 <div className="relative flex-1 max-w-md">
-                  <Search className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-stone-400 my-auto" size={13} />
+                  <Search className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-stone-500 my-auto" size={13} />
                   <input
                     type="text"
                     placeholder="Search spreadsheet cells..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full bg-white border border-stone-200 rounded-lg py-2 pl-9 pr-4 text-xs focus:outline-none focus:border-stone-400 transition-colors"
+                    className="w-full bg-transparent border border-stone-200 rounded-lg py-2 pl-9 pr-4 text-xs text-stone-800 focus:outline-none focus:border-stone-400 focus:ring-0 transition-colors duration-200"
                   />
                 </div>
                 
@@ -678,15 +678,15 @@ export default function CurriculumDashboard() {
               </div>
 
               {/* Spreadsheet Grid (Editorial styling) */}
-              <div className="bg-white border border-stone-200/80 rounded-xl overflow-hidden shadow-sm">
+              <div className="bg-white border border-stone-200/80 rounded-2xl overflow-hidden shadow-none">
                 <table className="w-full text-left border-collapse text-xs table-fixed">
                   <thead>
                     <tr className="border-b border-stone-200 text-[10px] text-stone-500 uppercase font-semibold tracking-wider bg-stone-50/50">
-                      <th className="py-4 px-6 w-12 text-center">No.</th>
-                      <th className="py-4 px-4 w-32 font-serif">Code</th>
-                      <th className="py-4 px-4 w-64 font-serif">CN (Script | Reading)</th>
+                      <th className="py-4 px-6 w-16 text-center font-serif">No.</th>
+                      <th className="py-4 px-6 w-36 font-serif">Code</th>
+                      <th className="py-4 px-6 w-72 font-serif">CN (Script | Reading)</th>
                       <th className="py-4 px-6 font-serif">EN (English / Script)</th>
-                      <th className="py-4 px-4 w-20 text-center">Delete</th>
+                      <th className="py-4 px-6 w-24 text-center font-serif">Delete</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-stone-100 font-sans">
@@ -698,49 +698,49 @@ export default function CurriculumDashboard() {
                       filteredRows.map((row) => {
                         const isTutor = row.cn === "\\";
                         return (
-                          <tr key={row.id} className="hover:bg-stone-50/30 transition-colors">
+                          <tr key={row.id} className="hover:bg-stone-50/30 transition-colors duration-200">
                             {/* No */}
-                            <td className="py-3 px-6 text-center font-mono text-stone-400">{row.no}</td>
+                            <td className="py-4 px-6 text-center font-mono text-stone-500">{row.no}</td>
                             
                             {/* Code */}
-                            <td className="py-3 px-4">
+                            <td className="py-4 px-6">
                               <input 
                                 type="text"
                                 value={row.code}
                                 onChange={(e) => handleCellEdit(row.id, "code", e.target.value)}
-                                className="w-full bg-transparent border border-transparent hover:border-stone-200 focus:bg-stone-50/80 focus:border-stone-400 rounded px-2 py-1 text-xs text-stone-700 font-mono font-semibold focus:outline-none transition-colors"
+                                className="w-full bg-transparent border border-transparent hover:border-stone-200 focus:border-stone-400 focus:ring-0 rounded-lg px-2 py-1 text-xs text-stone-800 font-mono font-semibold focus:outline-none transition-colors duration-200"
                               />
                             </td>
                             
                             {/* CN cell */}
-                            <td className="py-3 px-4">
+                            <td className="py-4 px-6">
                               <input 
                                 type="text"
                                 value={row.cn}
                                 onChange={(e) => handleCellEdit(row.id, "cn", e.target.value)}
-                                className={`w-full bg-transparent border border-transparent hover:border-stone-200 focus:bg-stone-50/80 focus:border-stone-400 rounded px-2 py-1 text-xs focus:outline-none font-medium transition-colors ${
-                                  isTutor ? "text-stone-400 font-mono italic" : "text-stone-850"
+                                className={`w-full bg-transparent border border-transparent hover:border-stone-200 focus:border-stone-400 focus:ring-0 rounded-lg px-2 py-1 text-xs focus:outline-none font-medium transition-colors duration-200 ${
+                                  isTutor ? "text-stone-500 font-mono italic" : "text-stone-805"
                                 }`}
                               />
                             </td>
                             
                             {/* EN cell */}
-                            <td className="py-3 px-6">
+                            <td className="py-4 px-6">
                               <textarea
                                 value={row.en}
                                 onChange={(e) => handleCellEdit(row.id, "en", e.target.value)}
-                                className={`w-full bg-transparent border border-transparent hover:border-stone-200 focus:bg-stone-50/80 focus:border-stone-400 rounded px-2 py-1 text-xs focus:outline-none leading-relaxed resize-none transition-colors ${
-                                  isTutor ? "text-stone-700 font-serif" : "text-stone-500"
+                                className={`w-full bg-transparent border border-transparent hover:border-stone-200 focus:border-stone-400 focus:ring-0 rounded-lg px-2 py-1 text-xs focus:outline-none leading-relaxed resize-none transition-colors duration-200 ${
+                                  isTutor ? "text-stone-800 font-serif" : "text-stone-500"
                                 }`}
                                 rows={isTutor && row.en.length > 80 ? 3 : 1}
                               />
                             </td>
                             
                             {/* Delete Action */}
-                            <td className="py-3 px-4 text-center">
+                            <td className="py-4 px-6 text-center">
                               <button 
                                 onClick={() => deleteExcelRow(row.id)}
-                                className="p-1.5 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-all cursor-pointer"
+                                className="p-1.5 text-stone-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors duration-200 cursor-pointer"
                               >
                                 <Trash2 size={13} />
                               </button>
@@ -760,7 +760,7 @@ export default function CurriculumDashboard() {
           {activeTab === "tutor" && (
             <div className="space-y-6">
               
-              <div className="bg-white p-6 border border-stone-200/80 rounded-xl flex items-center justify-between">
+              <div className="bg-white p-6 border border-stone-200/80 rounded-2xl flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-bold text-stone-800 font-serif">Tutor Pipeline & Audio QA Dashboard</h3>
                   <p className="text-[11px] text-stone-500 mt-0.5">Approve translations and preview the generated pronunciation audio files.</p>
@@ -779,17 +779,17 @@ export default function CurriculumDashboard() {
               </div>
 
               {/* QA Segment Table */}
-              <div className="bg-white border border-stone-200/80 rounded-xl overflow-hidden shadow-sm">
+              <div className="bg-white border border-stone-200/80 rounded-2xl overflow-hidden shadow-none">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="border-b border-stone-200 text-[10px] text-stone-500 uppercase font-semibold tracking-wider bg-stone-50/50">
-                      <th className="py-4 px-6 w-12 text-center">Idx</th>
-                      <th className="py-4 px-4 w-28 font-serif">Code</th>
-                      <th className="py-4 px-4 w-1/3 font-serif">Tutor Source Text</th>
-                      <th className="py-4 px-4 font-serif">Translation Overlay (Native)</th>
-                      <th className="py-4 px-4 w-40 font-serif">Audio Status</th>
-                      <th className="py-4 px-4 w-44 font-serif">Human QA</th>
-                      <th className="py-4 px-4 w-20 text-center">Regen</th>
+                      <th className="py-4 px-6 w-16 text-center font-serif">Idx</th>
+                      <th className="py-4 px-6 w-36 font-serif">Code</th>
+                      <th className="py-4 px-6 w-1/3 font-serif">Tutor Source Text</th>
+                      <th className="py-4 px-6 font-serif">Translation Overlay (Native)</th>
+                      <th className="py-4 px-6 w-44 font-serif">Audio Status</th>
+                      <th className="py-4 px-6 w-44 font-serif">Human QA</th>
+                      <th className="py-4 px-6 w-24 text-center font-serif">Regen</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-stone-100 font-sans">
@@ -805,24 +805,24 @@ export default function CurriculumDashboard() {
                         return (
                           <tr 
                             key={row.id} 
-                            className={`transition-all ${
+                            className={`transition-colors duration-200 ${
                               isFailed ? "bg-rose-500/[0.01] border-l-2 border-l-rose-500" : "hover:bg-stone-50/20"
                             }`}
                           >
                             {/* Index */}
-                            <td className="py-4 px-6 text-center font-mono text-stone-400">#{row.no}</td>
+                            <td className="py-4 px-6 text-center font-mono text-stone-500">#{row.no}</td>
                             
                             {/* Card Code */}
-                            <td className="py-4 px-4 font-mono font-semibold text-stone-700">{row.code}</td>
+                            <td className="py-4 px-6 font-mono font-semibold text-stone-700">{row.code}</td>
                             
                             {/* Source Text */}
-                            <td className="py-4 px-4">
+                            <td className="py-4 px-6">
                               {isFailed ? (
                                 <div className="space-y-1">
                                   <textarea 
                                     value={row.cn} 
                                     onChange={(e) => handleCellEdit(row.id, "cn", e.target.value)}
-                                    className="w-full bg-white border border-rose-250 rounded-lg p-2 text-xs text-stone-850 font-bold focus:outline-none focus:border-rose-400"
+                                    className="w-full bg-transparent border border-rose-200 rounded-lg p-2 text-xs text-stone-800 font-bold focus:outline-none focus:border-rose-400 focus:ring-0 transition-colors duration-200"
                                     rows={2}
                                   />
                                   <span className="text-[9px] text-rose-600 flex items-center space-x-1 font-medium">
@@ -832,16 +832,16 @@ export default function CurriculumDashboard() {
                                 </div>
                               ) : (
                                 <div className="space-y-1.5">
-                                  <div className="text-sm font-bold text-stone-900 tracking-wide font-serif">
+                                  <div className="text-sm font-bold text-stone-800 tracking-wide font-serif">
                                     {isTutor ? "Tutor Speech Segment" : row.cn.split("|")[0].trim()}
                                   </div>
                                   {!isTutor && row.cn.includes("|") && (
-                                    <div className="text-[10px] text-indigo-600 font-mono">
+                                    <div className="text-[10px] text-[#C27A5C] font-mono">
                                       {row.cn.split("|")[1].trim()}
                                     </div>
                                   )}
                                   {isTutor && (
-                                    <div className="text-[11px] text-stone-500 leading-relaxed font-serif max-h-16 overflow-y-auto">
+                                    <div className="text-[11px] text-stone-500 leading-relaxed font-serif max-h-24 overflow-y-auto pr-2">
                                       {row.en}
                                     </div>
                                   )}
@@ -850,22 +850,22 @@ export default function CurriculumDashboard() {
                             </td>
 
                             {/* Localized Translation Input */}
-                            <td className="py-4 px-4">
+                            <td className="py-4 px-6">
                               {!isTutor ? (
                                 <input 
                                   type="text"
                                   value={row.en}
                                   onChange={(e) => handleTranslationEdit(row.id, e.target.value)}
                                   placeholder="Nhập bản dịch..."
-                                  className="w-full bg-transparent border border-stone-200 rounded px-2.5 py-1.5 text-xs text-stone-800 font-medium focus:border-stone-400 focus:outline-none transition-colors"
+                                  className="w-full bg-transparent border border-stone-200 rounded-lg px-2.5 py-1.5 text-xs text-stone-800 font-medium focus:border-stone-400 focus:outline-none focus:ring-0 transition-colors duration-200"
                                 />
                               ) : (
-                                <span className="text-[10px] text-stone-400 italic">Instruction Segment</span>
+                                <span className="text-[10px] text-stone-500 italic">Instruction Segment</span>
                               )}
                             </td>
 
                             {/* Audio Status */}
-                            <td className="py-4 px-4">
+                            <td className="py-4 px-6">
                               <div className="space-y-1.5">
                                 {row.ttsStatus === "success" && (
                                   <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px] font-bold">
@@ -899,13 +899,13 @@ export default function CurriculumDashboard() {
                             </td>
 
                             {/* Human QA Actions */}
-                            <td className="py-4 px-4">
-                              <div className="flex items-center space-x-1">
+                            <td className="py-4 px-6">
+                              <div className="flex items-center space-x-1.5">
                                 <button
                                   onClick={() => updateQAStatus(row.id, "passed")}
-                                  className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold cursor-pointer transition-all flex items-center space-x-1 border ${
+                                  className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold cursor-pointer transition-colors duration-200 flex items-center space-x-1 border ${
                                     row.qaStatus === "passed"
-                                      ? "bg-[#D28E72] border-[#D28E72] text-white shadow-sm"
+                                      ? "bg-[#C27A5C] border-[#C27A5C] text-white"
                                       : "bg-white border-stone-200 text-stone-500 hover:text-stone-800 hover:bg-stone-50"
                                   }`}
                                 >
@@ -914,10 +914,10 @@ export default function CurriculumDashboard() {
                                 </button>
                                 <button
                                   onClick={() => updateQAStatus(row.id, "failed")}
-                                  className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold cursor-pointer transition-all flex items-center space-x-1 border ${
+                                  className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold cursor-pointer transition-colors duration-200 flex items-center space-x-1 border ${
                                     row.qaStatus === "failed"
-                                      ? "bg-stone-850 border-stone-850 text-white shadow-sm"
-                                      : "bg-white border-stone-200 text-stone-500 hover:text-stone-850 hover:bg-stone-50"
+                                      ? "bg-stone-800 border-stone-800 text-white"
+                                      : "bg-white border-stone-200 text-stone-550 hover:text-stone-800 hover:bg-stone-50"
                                   }`}
                                 >
                                   <X size={10} />
@@ -927,11 +927,11 @@ export default function CurriculumDashboard() {
                             </td>
 
                             {/* Regenerate Action */}
-                            <td className="py-4 px-4 text-center">
+                            <td className="py-4 px-6 text-center">
                               <button
                                 onClick={() => regenerateAudio(row.id)}
                                 disabled={row.ttsStatus === "generating"}
-                                className={`p-2 rounded-lg border shadow-sm transition-all cursor-pointer ${
+                                className={`p-2 rounded-lg border transition-colors duration-200 cursor-pointer ${
                                   isFailed
                                     ? "bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100"
                                     : "bg-white border-stone-200 text-stone-500 hover:bg-stone-50"
@@ -957,7 +957,7 @@ export default function CurriculumDashboard() {
           {activeTab === "drills" && (
             <div className="space-y-6">
               
-              <div className="bg-white p-6 border border-stone-200/80 rounded-xl">
+              <div className="bg-white p-6 border border-stone-200/80 rounded-2xl">
                 <h3 className="text-sm font-bold text-stone-800 font-serif">Drill Configuration Editor</h3>
                 <p className="text-[11px] text-stone-500 mt-0.5">Construct interactive spelling, fill-in-the-blank, or syntax reordering exercises.</p>
               </div>
@@ -965,19 +965,19 @@ export default function CurriculumDashboard() {
               <div className="grid grid-cols-3 gap-6 font-sans">
                 
                 {/* Left side: Spreadsheet Content Cards */}
-                <div className="col-span-1 bg-white border border-stone-200/80 rounded-xl p-4 space-y-4 shadow-sm">
+                <div className="col-span-1 bg-white border border-stone-200/80 rounded-2xl p-5 space-y-4">
                   <h4 className="text-xs font-bold text-stone-800 uppercase tracking-wide border-b border-stone-100 pb-2 font-serif">Spreadsheet Content Cards</h4>
                   
                   <div className="space-y-1.5 max-h-[380px] overflow-y-auto pr-1">
                     {currentRows.filter(r => !r.code.includes("_A") && !r.code.includes("_G")).map(row => (
-                      <div key={row.id} className="flex justify-between items-center p-2 rounded-lg border border-stone-100 bg-stone-50/40 text-[11px] hover:bg-stone-50 hover:border-stone-200 transition-colors">
+                      <div key={row.id} className="flex justify-between items-center p-2 rounded-lg border border-stone-100 bg-stone-50/40 text-[11px] hover:bg-stone-50 hover:border-stone-200 transition-colors duration-200">
                         <div className="min-w-0 pr-2">
                           <div className="font-bold text-stone-800 truncate">{row.cn.split("|")[0].trim()}</div>
-                          <div className="text-[9px] text-stone-400 font-mono truncate">{row.code}</div>
+                          <div className="text-[9px] text-stone-500 font-mono truncate">{row.code}</div>
                         </div>
                         <button 
                           onClick={() => addDrillFromExcel(row)}
-                          className="p-1 rounded bg-stone-100 text-stone-600 hover:bg-stone-800 hover:text-white transition-all cursor-pointer flex-shrink-0"
+                          className="p-1 rounded-lg bg-stone-50 border border-stone-200 text-stone-600 hover:bg-stone-800 hover:text-white transition-colors duration-200 cursor-pointer flex-shrink-0"
                         >
                           <PlusCircle size={12} />
                         </button>
@@ -988,29 +988,29 @@ export default function CurriculumDashboard() {
                 </div>
 
                 {/* Right side: Configure Drill Items */}
-                <div className="col-span-2 bg-white border border-stone-200/80 rounded-xl p-4 space-y-4 shadow-sm">
+                <div className="col-span-2 bg-white border border-stone-200/80 rounded-2xl p-5 space-y-4">
                   <h4 className="text-xs font-bold text-stone-800 uppercase tracking-wide border-b border-stone-100 pb-2 font-serif">Active Drills Configurations</h4>
 
                   <div className="space-y-4 max-h-[380px] overflow-y-auto pr-1">
                     {currentDrills.length === 0 ? (
-                      <div className="py-12 text-center text-stone-400 italic text-xs">
+                      <div className="py-12 text-center text-stone-500 italic text-xs">
                         No active drills configured. Click the "+" button on the left panel to import a card.
                       </div>
                     ) : (
                       currentDrills.map((drill) => {
                         const isFillBlank = drill.drillType === "fill_blank";
                         return (
-                          <div key={drill.id} className="p-4 rounded-xl border border-stone-200 bg-stone-50/30 space-y-3 relative group">
+                          <div key={drill.id} className="p-5 rounded-2xl border border-stone-200 bg-stone-50/30 space-y-4 relative group">
                             
                             <button 
                               onClick={() => deleteDrill(drill.id)}
-                              className="absolute top-4 right-4 p-1 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-all cursor-pointer"
+                              className="absolute top-4 right-4 p-1.5 text-stone-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors duration-200 cursor-pointer"
                             >
                               <Trash2 size={13} />
                             </button>
 
                             <div className="flex items-center space-x-3 text-xs">
-                              <span className="font-mono text-[9px] font-bold bg-white py-1 px-2 rounded border border-stone-200 text-stone-600">
+                              <span className="font-mono text-[9px] font-bold bg-white py-1 px-2 rounded-lg border border-stone-200 text-stone-550">
                                 Source: {drill.sourceCode}
                               </span>
                               
@@ -1019,7 +1019,7 @@ export default function CurriculumDashboard() {
                                 <select
                                   value={drill.drillType}
                                   onChange={(e) => handleDrillEdit(drill.id, "drillType", e.target.value as any)}
-                                  className="bg-white border border-stone-200 rounded py-0.5 px-2 text-[10px] text-stone-700 focus:outline-none"
+                                  className="bg-white border border-stone-200 rounded-lg py-0.5 px-2 text-[10px] text-stone-800 focus:outline-none focus:border-stone-400 transition-colors duration-200"
                                 >
                                   <option value="listen_repeat">Listen & Repeat (Speaking)</option>
                                   <option value="fill_blank">Fill in the Blank</option>
@@ -1031,61 +1031,61 @@ export default function CurriculumDashboard() {
                             {/* Base preview */}
                             <div className="grid grid-cols-2 gap-4">
                               <div>
-                                <label className="block text-[9px] text-stone-400 font-bold uppercase mb-1">Target Script</label>
+                                <label className="block text-[9px] text-stone-500 font-bold uppercase mb-1">Target Script</label>
                                 <input 
                                   type="text" 
                                   value={drill.scriptText} 
                                   onChange={(e) => handleDrillEdit(drill.id, "scriptText", e.target.value)}
-                                  className="bg-white border border-stone-200 rounded px-2.5 py-1.5 text-xs w-full text-stone-850 font-bold"
+                                  className="bg-transparent border border-stone-200 rounded-lg px-2.5 py-1.5 text-xs w-full text-stone-800 font-bold focus:border-stone-400 focus:outline-none focus:ring-0 transition-colors duration-200"
                                 />
                               </div>
                               <div>
-                                <label className="block text-[9px] text-stone-400 font-bold uppercase mb-1">Meaning</label>
+                                <label className="block text-[9px] text-stone-500 font-bold uppercase mb-1">Meaning</label>
                                 <input 
                                   type="text" 
                                   value={drill.meaning} 
                                   onChange={(e) => handleDrillEdit(drill.id, "meaning", e.target.value)}
-                                  className="bg-white border border-stone-200 rounded px-2.5 py-1.5 text-xs w-full text-stone-600"
+                                  className="bg-transparent border border-stone-200 rounded-lg px-2.5 py-1.5 text-xs w-full text-stone-600 focus:border-stone-400 focus:outline-none focus:ring-0 transition-colors duration-200"
                                 />
                               </div>
                             </div>
 
                             {/* Fill Blank Logic */}
                             {isFillBlank && (
-                              <div className="bg-white border border-stone-200 rounded-lg p-3.5 space-y-2.5 mt-2">
+                              <div className="bg-white border border-stone-200/80 rounded-xl p-4 space-y-3 mt-2 shadow-none">
                                 <div className="text-[10px] text-stone-500 font-semibold flex items-center space-x-1 font-serif">
-                                  <Info size={11} className="text-stone-700" />
+                                  <Info size={11} className="text-stone-800" />
                                   <span>Fill-in-the-blank Exercise Logic Configurations</span>
                                 </div>
                                 <div className="grid grid-cols-3 gap-3">
                                   <div>
-                                    <label className="block text-[8px] text-stone-400 uppercase font-semibold">Prompt Before</label>
+                                    <label className="block text-[8px] text-stone-500 uppercase font-semibold mb-0.5">Prompt Before</label>
                                     <input 
                                       type="text" 
                                       value={drill.promptBefore || ""} 
                                       onChange={(e) => handleDrillEdit(drill.id, "promptBefore", e.target.value)}
                                       placeholder="e.g. 我"
-                                      className="bg-transparent border border-stone-200 rounded px-2 py-0.5 text-xs w-full text-stone-850"
+                                      className="bg-transparent border border-stone-200 rounded-lg px-2.5 py-1.5 text-xs w-full text-stone-800 focus:border-stone-400 focus:outline-none focus:ring-0 transition-colors duration-200"
                                     />
                                   </div>
                                   <div>
-                                    <label className="block text-[8px] text-stone-400 uppercase font-semibold">Blank Answer</label>
+                                    <label className="block text-[8px] text-stone-500 uppercase font-semibold mb-0.5">Blank Answer</label>
                                     <input 
                                       type="text" 
                                       value={drill.answer || ""} 
                                       onChange={(e) => handleDrillEdit(drill.id, "answer", e.target.value)}
                                       placeholder="e.g. 是"
-                                      className="bg-transparent border border-stone-250 rounded px-2 py-0.5 text-xs w-full text-stone-900 font-bold"
+                                      className="bg-transparent border border-stone-200 rounded-lg px-2.5 py-1.5 text-xs w-full text-[#C27A5C] font-bold focus:border-stone-400 focus:outline-none focus:ring-0 transition-colors duration-200"
                                     />
                                   </div>
                                   <div>
-                                    <label className="block text-[8px] text-stone-400 uppercase font-semibold">Prompt After</label>
+                                    <label className="block text-[8px] text-stone-500 uppercase font-semibold mb-0.5">Prompt After</label>
                                     <input 
                                       type="text" 
                                       value={drill.promptAfter || ""} 
                                       onChange={(e) => handleDrillEdit(drill.id, "promptAfter", e.target.value)}
                                       placeholder="e.g. 学生"
-                                      className="bg-transparent border border-stone-200 rounded px-2 py-0.5 text-xs w-full text-stone-850"
+                                      className="bg-transparent border border-stone-200 rounded-lg px-2.5 py-1.5 text-xs w-full text-stone-800 focus:border-stone-400 focus:outline-none focus:ring-0 transition-colors duration-200"
                                     />
                                   </div>
                                 </div>
@@ -1109,7 +1109,7 @@ export default function CurriculumDashboard() {
           {activeTab === "roleplay" && (
             <div className="space-y-6">
               
-              <div className="bg-white p-6 border border-stone-200/80 rounded-xl">
+              <div className="bg-white p-6 border border-stone-200/80 rounded-2xl">
                 <h3 className="text-sm font-bold text-stone-800 font-serif">Roleplay Scenario Editor</h3>
                 <p className="text-[11px] text-stone-500 mt-0.5">Define conversation settings and AI goals for mock grading check-lists.</p>
               </div>
@@ -1117,24 +1117,24 @@ export default function CurriculumDashboard() {
               <div className="grid grid-cols-3 gap-6 font-sans">
                 
                 {/* Context setup */}
-                <div className="col-span-1 bg-white border border-stone-200/80 rounded-xl p-4 space-y-4 shadow-sm">
+                <div className="col-span-1 bg-white border border-stone-200/80 rounded-2xl p-5 space-y-4">
                   <h4 className="text-xs font-bold text-stone-800 uppercase tracking-wide border-b border-stone-100 pb-2 font-serif">Context Prompt & Info</h4>
                   
                   <div className="space-y-3">
                     <div>
-                      <label className="block text-[9px] text-stone-400 font-bold uppercase mb-1">Prompt Setup Context</label>
+                      <label className="block text-[9px] text-stone-500 font-bold uppercase mb-1">Prompt Setup Context</label>
                       <textarea
                         value={currentRoleplay.setup}
                         onChange={(e) => handleRoleplaySetupChange(e.target.value)}
                         placeholder="Define prompt scenario instructions for the AI tutor..."
-                        className={`w-full bg-white border rounded-lg p-2 text-xs text-stone-800 focus:outline-none focus:border-stone-400 ${
+                        className={`w-full bg-transparent border rounded-lg p-2 text-xs text-stone-800 focus:outline-none focus:border-stone-450 focus:ring-0 transition-colors duration-200 ${
                           currentRoleplay.setup.length > 1000 ? "border-rose-300" : "border-stone-200"
                         }`}
                         rows={6}
                       />
                       
                       <div className="flex justify-between items-center mt-1 text-[9px]">
-                        <span className={currentRoleplay.setup.length > 1000 ? "text-rose-600 font-bold" : "text-stone-400"}>
+                        <span className={currentRoleplay.setup.length > 1000 ? "text-rose-600 font-bold" : "text-stone-500"}>
                           {currentRoleplay.setup.length} / 1000 characters
                         </span>
                         {currentRoleplay.setup.length > 1000 && (
@@ -1147,12 +1147,12 @@ export default function CurriculumDashboard() {
                     </div>
 
                     <div>
-                      <label className="block text-[9px] text-stone-400 font-bold uppercase mb-1">Tutor Scenario Notes</label>
+                      <label className="block text-[9px] text-stone-500 font-bold uppercase mb-1">Tutor Scenario Notes</label>
                       <textarea
                         value={currentRoleplay.notes}
                         onChange={(e) => handleRoleplayNotesChange(e.target.value)}
                         placeholder="Internal guidelines or scenario tips..."
-                        className="w-full bg-white border border-stone-200 rounded-lg p-2 text-xs text-stone-600 focus:outline-none focus:border-stone-400"
+                        className="w-full bg-transparent border border-stone-200 rounded-lg p-2 text-xs text-stone-500 focus:outline-none focus:border-stone-400 focus:ring-0 transition-colors duration-200"
                         rows={4}
                       />
                     </div>
@@ -1161,12 +1161,12 @@ export default function CurriculumDashboard() {
                 </div>
 
                 {/* Goals success criteria */}
-                <div className="col-span-2 bg-white border border-stone-200/80 rounded-xl p-4 space-y-4 flex flex-col shadow-sm">
+                <div className="col-span-2 bg-white border border-stone-200/80 rounded-2xl p-5 space-y-4 flex flex-col">
                   <div className="border-b border-stone-100 pb-2 flex justify-between items-center">
                     <h4 className="text-xs font-bold text-stone-800 uppercase tracking-wide font-serif">Conversational Goals (Success Criteria)</h4>
                     <button
                       onClick={addRoleplayGoal}
-                      className="bg-stone-850 hover:bg-stone-700 text-white py-1.5 px-3 rounded-lg text-xs font-bold flex items-center space-x-1 cursor-pointer transition-all active:scale-95 shadow-sm"
+                      className="bg-stone-800 hover:bg-stone-700 text-white py-1.5 px-3 rounded-lg text-xs font-bold flex items-center space-x-1 cursor-pointer transition-colors duration-200 active:scale-95 border border-stone-800"
                     >
                       <Plus size={12} />
                       <span>Add Goal</span>
@@ -1175,42 +1175,42 @@ export default function CurriculumDashboard() {
 
                   <div className="space-y-3 flex-1 overflow-y-auto max-h-[380px] pr-1">
                     {currentRoleplay.goals.length === 0 ? (
-                      <div className="py-12 text-center text-stone-400 italic text-xs">
+                      <div className="py-12 text-center text-stone-500 italic text-xs">
                         No goals added. Add grading criteria so the AI can evaluate the student conversation.
                       </div>
                     ) : (
                       currentRoleplay.goals.map((goal, idx) => (
-                        <div key={goal.id} className="p-3.5 rounded-lg bg-stone-50/40 border border-stone-200 relative flex items-start space-x-4">
+                        <div key={goal.id} className="p-4 rounded-xl bg-stone-50/40 border border-stone-200/80 relative flex items-start space-x-4">
                           
                           <button
                             onClick={() => removeRoleplayGoal(goal.id)}
-                            className="absolute top-3 right-3 p-1 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-all cursor-pointer"
+                            className="absolute top-3 right-3 p-1.5 text-stone-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors duration-200 cursor-pointer"
                           >
                             <Trash2 size={13} />
                           </button>
 
-                          <div className="font-mono text-xs text-stone-600 font-bold bg-white h-6 w-6 rounded-full flex items-center justify-center border border-stone-200">
+                          <div className="font-mono text-xs text-stone-500 font-bold bg-white h-6 w-6 rounded-full flex items-center justify-center border border-stone-200">
                             {idx + 1}
                           </div>
 
                           <div className="flex-1 grid grid-cols-2 gap-4 pr-6">
                             <div>
-                              <label className="block text-[8px] text-stone-400 uppercase font-semibold mb-0.5">Success Criteria (English)</label>
+                              <label className="block text-[8px] text-stone-500 uppercase font-semibold mb-1">Success Criteria (English)</label>
                               <input
                                 type="text"
                                 value={goal.successCriteria}
                                 onChange={(e) => editRoleplayGoal(goal.id, "successCriteria", e.target.value)}
-                                className="w-full bg-white border border-stone-200 rounded px-2 py-1 text-xs text-stone-800 focus:border-stone-400 focus:outline-none"
+                                className="w-full bg-transparent border border-stone-200 rounded-lg px-2.5 py-1.5 text-xs text-stone-800 focus:border-stone-400 focus:outline-none focus:ring-0 transition-colors duration-200"
                               />
                             </div>
                             
                             <div>
-                              <label className="block text-[8px] text-stone-400 uppercase font-semibold mb-0.5">Native Description (Overlay)</label>
+                              <label className="block text-[8px] text-stone-500 uppercase font-semibold mb-1">Native Description (Overlay)</label>
                               <input
                                 type="text"
                                 value={goal.descriptionNative}
                                 onChange={(e) => editRoleplayGoal(goal.id, "descriptionNative", e.target.value)}
-                                className="w-full bg-white border border-stone-200 rounded px-2 py-1 text-xs text-stone-600 focus:border-stone-400 focus:outline-none"
+                                className="w-full bg-transparent border border-stone-200 rounded-lg px-2.5 py-1.5 text-xs text-stone-500 focus:border-stone-400 focus:outline-none focus:ring-0 transition-colors duration-200"
                               />
                             </div>
                           </div>
