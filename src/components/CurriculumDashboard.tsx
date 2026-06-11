@@ -4,7 +4,6 @@ import React, { useState, useEffect, useRef } from "react";
 import { 
   Database, 
   Volume2, 
-  Settings, 
   MessageSquare, 
   Plus, 
   Trash2, 
@@ -20,139 +19,168 @@ import {
   PlusCircle,
   Globe,
   Sliders,
-  Sparkles,
   Info,
   Grid,
-  Download,
-  Upload,
-  RefreshCw,
   Search,
-  CheckCircle
+  Save,
+  FileSpreadsheet,
+  Lock,
+  ChevronRight,
+  GripVertical,
+  ArrowUp,
+  ArrowDown
 } from "lucide-react";
 
 // Types
-interface LanguagePair {
+interface Language {
   id: string;
-  learning: string;
-  native: string;
+  code: string;
+  name: string;
+  script: string;
+  speechLocale: string;
+  isAvailable: boolean;
   flag: string;
-  label: string;
 }
 
-interface Lesson {
+export type LessonStatus = "incomplete" | "ready" | "disabled" | "needs_review" | "published";
+export type RowStatus = "incomplete" | "ready" | "disabled" | "needs_review";
+export type ContentType = "guided_script" | "vocab" | "sentence" | "grammar";
+
+export interface Lesson {
   id: string;
+  languageCode: string;
   lessonCode: string;
   level: number;
   title: string;
   description: string;
-  status: "draft" | "published";
+  status: LessonStatus;
+  isEnabled: boolean;
+  localizationCoverage: number;
 }
 
-interface ExcelRow {
+export interface ExcelRow {
   id: string;
   no: number | string;
   code: string;
-  cn: string; // e.g. "你 | nǐ" or "\\" for tutor lines
+  type?: ContentType;
+  source: string; // e.g. "你" or "\\" for tutor lines
+  reading: string; // e.g. "nǐ" or ""
   en: string; // e.g. "you" or tutor text transcript
+  vn: string;
+  kr: string;
+  es: string;
+  status?: RowStatus;
+  isEnabled?: boolean;
   ttsStatus: "draft" | "generating" | "success" | "failed";
   audioUrl?: string;
-  qaStatus: "pending" | "passed" | "failed";
+  qaStatus: "pending" | "passed" | "failed"; // Human QA
+  aiQaStatus?: "pending" | "passed" | "failed"; // AI QA
   ttsMessage?: string;
 }
 
-interface DrillItem {
+interface ImportPreviewRow {
+  rowNumber: number;
+  code: string;
+  type: ContentType | "invalid";
+  sourceText: string;
+  reading: string;
+  meaningEn: string;
+  meaningVn: string;
+  meaningKr: string;
+  meaningEs: string;
+  status: "valid" | "invalid" | "duplicate";
+  errors: string[];
+}
+
+interface ToastMessage {
+  type: "success" | "warning" | "error";
+  message: string;
+}
+
+export interface DrillItem {
   id: string;
   drillType: "listen_repeat" | "fill_blank" | "sentence_order";
   scriptText: string;
-  meaning: string;
+  meaningEn: string;
+  meaningVn: string;
+  meaningKr: string;
+  meaningEs: string;
   promptBefore?: string;
   promptAfter?: string;
   answer?: string;
   sourceCode: string; // references Vocab/Sentence code
+  assignment?: "not_added" | "drill" | "extra_drill";
 }
 
-interface RoleplayGoal {
+export interface RoleplayGoal {
   id: string;
   orderIndex: number;
   successCriteria: string;
   descriptionNative: string;
+  isEnabled: boolean;
 }
 
-interface Roleplay {
+export interface Roleplay {
   id: string;
-  setup: string;
-  notes: string;
   goals: RoleplayGoal[];
 }
 
-// Initial Mock Data reflecting actual [Original] Yapsu AI Curriculum.xlsx
-const mockLanguagePairs: LanguagePair[] = [
-  { id: "zh-vi", learning: "Chinese", native: "Vietnamese", flag: "🇨🇳", label: "Chinese ➜ Vietnamese" },
-  { id: "ja-vi", learning: "Japanese", native: "Vietnamese", flag: "🇯🇵", label: "Japanese ➜ Vietnamese" }
+// Mock data follows the confirmed ERD: LANGUAGE -> LESSON -> source content items.
+const mockLanguages: Language[] = [
+  { id: "lang-zh", code: "zh", name: "Chinese", script: "Hans", speechLocale: "cmn-CN", isAvailable: true, flag: "CN" },
+  { id: "lang-ja", code: "ja", name: "Japanese", script: "Jpan", speechLocale: "ja-JP", isAvailable: true, flag: "JP" }
 ];
 
 const mockLessons: Record<string, Lesson[]> = {
-  "zh-vi": [
-    { id: "zh-l101", lessonCode: "CN_L101", level: 1, title: "Introductions and greetings", description: "Learn basic pronouns and greetings", status: "published" },
-    { id: "zh-l102", lessonCode: "CN_L102", level: 1, title: "Numbers & Shopping", description: "Asking prices and counting", status: "draft" }
+  zh: [
+    { id: "zh-l101", languageCode: "zh", lessonCode: "CN_L101", level: 1, title: "Introductions & Greetings", description: "Basic pronouns and greetings", status: "ready", isEnabled: true, localizationCoverage: 100 },
+    { id: "zh-l102", languageCode: "zh", lessonCode: "CN_L102", level: 1, title: "People & Occupations", description: "He/she, teachers, students", status: "ready", isEnabled: true, localizationCoverage: 85 },
+    { id: "zh-l103", languageCode: "zh", lessonCode: "CN_L103", level: 1, title: "Asking Questions", description: "什么, nationalities and languages", status: "ready", isEnabled: true, localizationCoverage: 80 },
+    { id: "zh-l104", languageCode: "zh", lessonCode: "CN_L104", level: 1, title: "Family & Relationships", description: "Family members and 的", status: "ready", isEnabled: true, localizationCoverage: 75 },
+    { id: "zh-l105", languageCode: "zh", lessonCode: "CN_L105", level: 1, title: "Dates & Birthdays", description: "Numbers, months, and birthdays", status: "ready", isEnabled: true, localizationCoverage: 70 }
   ],
-  "ja-vi": [
-    { id: "ja-l101", lessonCode: "JA_L101", level: 1, title: "Meeting Someone New", description: "Hajimemashite and self introduction", status: "published" }
+  ja: [
+    { id: "ja-l101", languageCode: "ja", lessonCode: "JP_L101", level: 1, title: "Meeting Someone New", description: "Hajimemashite and self-introduction", status: "ready", isEnabled: true, localizationCoverage: 90 },
+    { id: "ja-l102", languageCode: "ja", lessonCode: "JP_L102", level: 1, title: "This & That", description: "Demonstratives: これ, それ, あれ", status: "ready", isEnabled: true, localizationCoverage: 85 },
+    { id: "ja-l103", languageCode: "ja", lessonCode: "JP_L103", level: 1, title: "Adjectives", description: "い-adjectives: big, small, new", status: "ready", isEnabled: true, localizationCoverage: 80 },
+    { id: "ja-l104", languageCode: "ja", lessonCode: "JP_L104", level: 1, title: "Location & Position", description: "Where things are: うえ, した, の", status: "ready", isEnabled: true, localizationCoverage: 75 },
+    { id: "ja-l105", languageCode: "ja", lessonCode: "JP_L105", level: 1, title: "Daily Actions", description: "Verbs: read, write, speak, live", status: "ready", isEnabled: true, localizationCoverage: 70 }
   ]
 };
 
-// Raw Excel rows mapped exactly from [Original] Yapsu AI Curriculum.xlsx sheet L1-01
-const initialExcelRows: Record<string, ExcelRow[]> = {
-  "CN_L101": [
-    { id: "row-1", no: 1, code: "CN_L101_A1", cn: "\\", en: "Hey there. Imagine this — it's your first day at a language exchange in Shanghai. Someone walks up to you, smiles, and says something in Chinese. You want to say hi and introduce yourself.\n\nThat's exactly what we're doing today. By the end of this lesson, you’ll be able to do both naturally in Chinese. Let’s go.\n\nAlright, quick question before we start— if you could only learn ONE word in any language before landing in a new country… what would it be?\nProbably \"you,\" right? Because every conversation starts there.\n\nIn Chinese, \"you\" is 你\nListen: 你. Give it a small rise — like you're slightly curious.\nNǐ.\nYour turn.", ttsStatus: "success", audioUrl: "https://www.soundjay.com/buttons/sounds/button-3.mp3", qaStatus: "passed" },
-    { id: "row-2", no: 2, code: "CN_L101_V6", cn: "你 | nǐ", en: "you", ttsStatus: "success", audioUrl: "https://www.soundjay.com/buttons/sounds/button-3.mp3", qaStatus: "passed" },
-    { id: "row-3", no: 3, code: "CN_L101_A2", cn: "\\", en: "Nice. That already sounds like Chinese.\n\nNow flip it. What about \"me\"? Because after you say \"you\"… you've gotta talk about yourself.\nThat’s 我. It dips down, then bounces back up. Try it:\n我.", ttsStatus: "success", audioUrl: "https://www.soundjay.com/buttons/sounds/button-3.mp3", qaStatus: "passed" },
-    { id: "row-4", no: 4, code: "CN_L101_V7", cn: "我 | wǒ", en: "I | me", ttsStatus: "success", audioUrl: "https://www.soundjay.com/buttons/sounds/button-3.mp3", qaStatus: "passed" },
-    { id: "row-5", no: 5, code: "CN_L101_A3", cn: "\\", en: "Perfect.\n\nOkay, here's the fun part.\nYou've got 你 — you. And now let me give you one more: 好 — it means \"good.\"\nSimilar feel to 我 — it dips a little. Hǎo.", ttsStatus: "success", audioUrl: "https://www.soundjay.com/buttons/sounds/button-3.mp3", qaStatus: "pending" },
-    { id: "row-6", no: 6, code: "CN_L101_V4", cn: "好 | hǎo", en: "good", ttsStatus: "success", audioUrl: "https://www.soundjay.com/buttons/sounds/button-3.mp3", qaStatus: "pending" },
-    { id: "row-7", no: 7, code: "CN_L101_A4", cn: "\\", en: "Good one.\nNow — put 你 and 好 together. What do you get?\n你好, which is hello.\nIn real life, most people say 你好 really smoothly — almost like one word. Nǐhǎo.\nTry it smooth: 你好.", ttsStatus: "success", audioUrl: "https://www.soundjay.com/buttons/sounds/button-3.mp3", qaStatus: "pending" },
-    { id: "row-8", no: 8, code: "CN_L101_S4", cn: "你好 | nǐ hǎo", en: "hello", ttsStatus: "success", audioUrl: "https://www.soundjay.com/buttons/sounds/button-3.mp3", qaStatus: "pending" },
-    { id: "row-9", no: 9, code: "CN_L101_A5", cn: "\\", en: "You nailed it. That sounded natural.\n\nNow — imagine someone just said 你好 to you. What's next? They're probably going to ask your name.\nHere's the word you need: 叫 — it means \"to be called.\"\nJust say it once for me — 叫.", ttsStatus: "failed", ttsMessage: "Gemini TTS timeout error", qaStatus: "failed" },
-    { id: "row-10", no: 10, code: "CN_L101_V3", cn: "叫 | jiào", en: "to be called", ttsStatus: "generating", qaStatus: "pending" },
-    { id: "row-11", no: 11, code: "CN_L101_A6", cn: "\\", en: "Good job.\n\nNow — after your name, people are going to want to know a bit more about you. Like, are you a student? Here's the word you need to know:\n\n学生 — that's \"student.\". Listen first — 学生. Now your turn:", ttsStatus: "draft", qaStatus: "pending" },
-    { id: "row-12", no: 12, code: "CN_L101_V2", cn: "学生 | xuéshēng", en: "student", ttsStatus: "draft", qaStatus: "pending" },
-    { id: "row-13", no: 13, code: "CN_L101_A7", cn: "\\", en: "Nice.\n\nAnd if you're not a student — maybe you're working and your are an engineer. Here's the word you need:\n\n工程师 — engineer. Okay it's a longer one, so let's just take it slow together — gōng… chéng… shī. Nice and easy. Now all together — 工程师.", ttsStatus: "draft", qaStatus: "pending" },
-    { id: "row-14", no: 14, code: "CN_L101_V1", cn: "工程师 | gōngchéngshī", en: "engineer", ttsStatus: "draft", qaStatus: "pending" },
-    { id: "row-15", no: 15, code: "CN_L101_G1", cn: "\\", en: "- Structure: Subject + Verb + Object (SVO)\n- Usage: Used to form basic affirmative sentences in Chinese.\n\n- Examples:\n+ 你是工程师。(Nǐ shì gōngchéngshī.) – You are an engineer.\n+ 我叫安娜。(Wǒ jiào Ānnà.) - My name is Anna.\n+ 我 là 学生。(Wǒ shì xuéshēng.) - I am a student.", ttsStatus: "draft", qaStatus: "pending" },
-    { id: "row-16", no: 16, code: "CN_L101_S1", cn: "我是学生 | wǒ shì xuéshēng", en: "I am a student", ttsStatus: "draft", qaStatus: "pending" },
-    { id: "row-17", no: 17, code: "CN_L101_S2", cn: "你是工程师 | nǐ shì gōngchéngshī", en: "You are an engineer", ttsStatus: "draft", qaStatus: "pending" }
-  ],
-  "CN_L102": [
-    { id: "row-201", no: 1, code: "CN_L102_A1", cn: "\\", en: "Welcome to Lesson 2! Today we count numbers.", ttsStatus: "success", audioUrl: "https://www.soundjay.com/buttons/sounds/button-3.mp3", qaStatus: "passed" },
-    { id: "row-202", no: 2, code: "CN_L102_V1", cn: "多少钱 | duō shǎo qián", en: "How much money", ttsStatus: "draft", qaStatus: "pending" }
-  ],
-  "JA_L101": [
-    { id: "row-301", no: 1, code: "JA_L101_A1", cn: "\\", en: "Hajimemashite! Welcome to Japanese Level 1.", ttsStatus: "success", audioUrl: "https://www.soundjay.com/buttons/sounds/button-3.mp3", qaStatus: "passed" },
-    { id: "row-302", no: 2, code: "JA_L101_V1", cn: "初めまして | はじめまして", en: "Nice to meet you", ttsStatus: "draft", qaStatus: "pending" }
-  ]
+import { initialExcelRows, initialDrillItems, initialRoleplays } from "../data/mockNotionData";
+
+const inferContentType = (code: string): ContentType => {
+  if (code.includes("_V")) return "vocab";
+  if (code.includes("_S")) return "sentence";
+  if (code.includes("_G")) return "grammar";
+  return "guided_script";
 };
 
-const initialDrillItems: Record<string, DrillItem[]> = {
-  "CN_L101": [
-    { id: "dr-1", drillType: "listen_repeat", scriptText: "你好", meaning: "Xin chào", sourceCode: "CN_L101_V6" },
-    { id: "dr-2", drillType: "fill_blank", scriptText: "我是学生", meaning: "Tôi là học sinh", promptBefore: "我", promptAfter: "学生", answer: "是", sourceCode: "CN_L101_S1" }
-  ],
-  "CN_L102": [],
-  "JA_L101": []
+const getRequiredFieldErrors = (row: ExcelRow) => {
+  const type = row.type || inferContentType(row.code);
+  const errors: string[] = [];
+  if (!row.code.trim()) errors.push("code");
+  // Require at least 'en' or 'vn' for meaning
+  if (!row.en.trim() && !row.vn.trim()) errors.push(type === "guided_script" ? "textEnglish" : "meaning/text");
+  if ((type === "vocab" || type === "sentence") && (!row.source.trim() || row.source.trim() === "\\")) {
+    errors.push("scriptText");
+  }
+  return errors;
 };
 
-const initialRoleplays: Record<string, Roleplay> = {
-  "CN_L101": {
-    id: "rp-1",
-    setup: "Bạn đang tham gia một buổi trao đổi ngôn ngữ tại Bắc Kinh. Hãy tự giới thiệu tên mình bằng tiếng Trung với giáo viên.",
-    notes: "Sử dụng mẫu câu '我叫 [Tên]' hoặc '我是 [Tên]'.",
-    goals: [
-      { id: "g-1", orderIndex: 1, successCriteria: "Chào giáo viên bằng 'nǐ hǎo'", descriptionNative: "Chào hỏi lịch sự" },
-      { id: "g-2", orderIndex: 2, successCriteria: "Giới thiệu nghề nghiệp là 'xuéshēng' hoặc 'gōngchéngshī'", descriptionNative: "Giới thiệu nghề nghiệp" }
-    ]
-  },
-  "CN_L102": { id: "rp-2", setup: "Hỏi giá tiền táo tại cửa hàng.", notes: "", goals: [] },
-  "JA_L101": { id: "rp-3", setup: "Chào hỏi gia đình homestay tại sân bay.", notes: "", goals: [] }
+const getRowStatus = (row: ExcelRow): RowStatus => {
+  if (row.status === "disabled") return "disabled";
+  if (row.status === "needs_review") return "needs_review";
+  return getRequiredFieldErrors(row).length > 0 ? "incomplete" : "ready";
+};
+
+const statusStyles: Record<LessonStatus | RowStatus, string> = {
+  incomplete: "bg-amber-50 text-amber-700 border-amber-200",
+  ready: "bg-sky-50 text-sky-700 border-sky-200",
+  disabled: "bg-stone-100 text-stone-900 border-stone-200",
+  needs_review: "bg-rose-50 text-rose-700 border-rose-200",
+  published: "bg-emerald-50 text-emerald-700 border-emerald-200"
 };
 
  // Mini Audio Player Component
@@ -212,76 +240,140 @@ const MiniAudioPlayer: React.FC<MiniPlayerProps> = ({ url }) => {
 };
 
 export default function CurriculumDashboard() {
-  const [selectedPairId, setSelectedPairId] = useState<string>("zh-vi");
-  const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
+  const [selectedLanguageCode, setSelectedLanguageCode] = useState<string>("zh");
+  const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(mockLessons.zh[0]);
   const [activeTab, setActiveTab] = useState<string>("excel"); // excel, tutor, drills, roleplay
   const [searchQuery, setSearchQuery] = useState("");
+  const [isDirty, setIsDirty] = useState(false);
+  const [toast, setToast] = useState<ToastMessage | null>(null);
+  const [highlightedRowId, setHighlightedRowId] = useState<string | null>(null);
+  const [importFileName, setImportFileName] = useState("");
+  const [importPreview, setImportPreview] = useState<ImportPreviewRow[]>([]);
+  const [showImportPreview, setShowImportPreview] = useState(false);
+  const [draggedRowId, setDraggedRowId] = useState<string | null>(null);
+  const [dragOverRowId, setDragOverRowId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const rowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
+  const firstFieldRefs = useRef<Record<string, HTMLTextAreaElement | HTMLInputElement | null>>({});
+  const drillIdRef = useRef(1000);
 
   // States
   const [excelRowsMap, setExcelRowsMap] = useState<Record<string, ExcelRow[]>>(initialExcelRows);
   const [drillMap, setDrillMap] = useState<Record<string, DrillItem[]>>(initialDrillItems);
   const [roleplayMap, setRoleplayMap] = useState<Record<string, Roleplay>>(initialRoleplays);
 
-  // Set default lesson when pair changes
   useEffect(() => {
-    const pairLessons = mockLessons[selectedPairId] || [];
-    if (pairLessons.length > 0) {
-      setSelectedLesson(pairLessons[0]);
-    } else {
-      setSelectedLesson(null);
-    }
-  }, [selectedPairId]);
+    if (!toast) return;
+    const timeout = window.setTimeout(() => setToast(null), 3500);
+    return () => window.clearTimeout(timeout);
+  }, [toast]);
+
+  useEffect(() => {
+    const warnAboutUnsavedChanges = (event: BeforeUnloadEvent) => {
+      if (!isDirty) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warnAboutUnsavedChanges);
+    return () => window.removeEventListener("beforeunload", warnAboutUnsavedChanges);
+  }, [isDirty]);
 
   const activeLessonCode = selectedLesson?.lessonCode || "";
   const currentRows = excelRowsMap[activeLessonCode] || [];
+  const getNextSystemCode = (type: ContentType, excludedRowId?: string) => {
+    const prefixByType: Record<ContentType, string> = {
+      guided_script: "A",
+      vocab: "V",
+      sentence: "S",
+      grammar: "G"
+    };
+    const prefix = `${activeLessonCode}_${prefixByType[type]}`;
+    const highestSuffix = currentRows.reduce((highest, row) => {
+      if (row.id === excludedRowId || !row.code.startsWith(prefix)) return highest;
+      const suffix = Number(row.code.slice(prefix.length));
+      return Number.isFinite(suffix) ? Math.max(highest, suffix) : highest;
+    }, 0);
+    return `${prefix}${highestSuffix + 1}`;
+  };
 
   // ----------------------------------------------------
   // TAB 1: EXCEL SPREADSHEET EDITOR (UC01 - Layer 2)
   // ----------------------------------------------------
-  const handleCellEdit = (id: string, field: "cn" | "en" | "code", val: string) => {
+  const handleCellEdit = (id: string, field: "source" | "reading" | "en" | "vn" | "kr" | "es", val: string) => {
     setExcelRowsMap(prev => ({
       ...prev,
-      [activeLessonCode]: prev[activeLessonCode].map(row => row.id === id ? { ...row, [field]: val } : row)
+      [activeLessonCode]: prev[activeLessonCode].map(row => {
+        if (row.id !== id) return row;
+        const hasDependency = Boolean(row.audioUrl) || (drillMap[activeLessonCode] || []).some(drill => drill.sourceCode === row.code);
+        return {
+          ...row,
+          [field]: val,
+          status: hasDependency ? "needs_review" : undefined,
+          isEnabled: hasDependency ? false : row.isEnabled
+        };
+      })
     }));
+    setIsDirty(true);
   };
 
   const addExcelRow = (type: "tutor" | "vocab" | "sentence" | "grammar") => {
     const newNo = currentRows.length + 1;
-    let codePrefix = "V";
-    let defaultCn = "新词汇 | xīn cí huì";
-    let defaultEn = "New Vocab";
+    let contentType: ContentType = "vocab";
+    let defaultCn = "";
     
     if (type === "tutor") {
-      codePrefix = "A";
+      contentType = "guided_script";
       defaultCn = "\\";
-      defaultEn = "Tutor instructions script here...";
     } else if (type === "sentence") {
-      codePrefix = "S";
-      defaultCn = "新句子 | xīn jù zi";
-      defaultEn = "New sentence meaning";
+      contentType = "sentence";
     } else if (type === "grammar") {
-      codePrefix = "G";
+      contentType = "grammar";
       defaultCn = "\\";
-      defaultEn = "Grammar rule configuration...";
     }
 
     const newRow: ExcelRow = {
       id: `row-${Date.now()}`,
       no: newNo,
-      code: `${activeLessonCode}_${codePrefix}${newNo}`,
-      cn: defaultCn,
-      en: defaultEn,
+      code: getNextSystemCode(contentType),
+      type: contentType,
+      source: defaultCn,
+      reading: "",
+      en: "",
+      vn: "",
+      kr: "",
+      es: "",
+      status: "incomplete",
+      isEnabled: false,
       ttsStatus: "draft",
-      qaStatus: "pending"
+      qaStatus: "pending",
+      aiQaStatus: "pending"
     };
 
     setExcelRowsMap(prev => ({
       ...prev,
       [activeLessonCode]: [...(prev[activeLessonCode] || []), newRow]
     }));
+    setIsDirty(true);
+    setHighlightedRowId(newRow.id);
+    setToast({ type: "success", message: `Added ${contentType.replace("_", " ")} at row ${newNo}. Complete required fields before enabling.` });
+    window.setTimeout(() => {
+      rowRefs.current[newRow.id]?.scrollIntoView({ behavior: "smooth", block: "center" });
+      firstFieldRefs.current[newRow.id]?.focus();
+    }, 80);
+    window.setTimeout(() => setHighlightedRowId(null), 2600);
   };
 
   const deleteExcelRow = (id: string) => {
+    const target = currentRows.find(row => row.id === id);
+    if (!target) return;
+    const dependencies = [
+      target.audioUrl ? "Audio" : "",
+      (drillMap[activeLessonCode] || []).some(drill => drill.sourceCode === target.code) ? "Drill" : "",
+      target.code.includes("_S") && (roleplayMap[activeLessonCode]?.goals.length || 0) > 0 ? "Roleplay" : ""
+    ].filter(Boolean);
+    if (dependencies.length > 0 && !window.confirm(`${target.code} is used by ${dependencies.join(", ")}. Delete it and mark downstream data for review?`)) {
+      return;
+    }
     setExcelRowsMap(prev => {
       const updated = (prev[activeLessonCode] || []).filter(row => row.id !== id);
       const reindexed = updated.map((r, idx) => ({ ...r, no: idx + 1 }));
@@ -290,6 +382,199 @@ export default function CurriculumDashboard() {
         [activeLessonCode]: reindexed
       };
     });
+    setIsDirty(true);
+    setToast({ type: "warning", message: `${target.code} removed. ${dependencies.length ? `${dependencies.join(", ")} must be reviewed.` : "No downstream dependencies found."}` });
+  };
+
+  const reorderRows = (sourceId: string, targetId: string) => {
+    if (sourceId === targetId) return;
+    if (searchQuery.trim()) {
+      setToast({ type: "warning", message: "Clear the search filter before reordering cards." });
+      return;
+    }
+
+    const sourceIndex = currentRows.findIndex(row => row.id === sourceId);
+    const targetIndex = currentRows.findIndex(row => row.id === targetId);
+    if (sourceIndex < 0 || targetIndex < 0) return;
+
+    const reordered = [...currentRows];
+    const [movedRow] = reordered.splice(sourceIndex, 1);
+    reordered.splice(targetIndex, 0, movedRow);
+    const reindexed = reordered.map((row, index) => ({ ...row, no: index + 1 }));
+
+    setExcelRowsMap(prev => ({ ...prev, [activeLessonCode]: reindexed }));
+    setIsDirty(true);
+    setHighlightedRowId(sourceId);
+    setToast({
+      type: "success",
+      message: `Moved ${movedRow.code} from row ${sourceIndex + 1} to row ${targetIndex + 1}.`
+    });
+    window.setTimeout(() => setHighlightedRowId(null), 1800);
+  };
+
+  const moveRow = (rowId: string, direction: -1 | 1) => {
+    if (searchQuery.trim()) {
+      setToast({ type: "warning", message: "Clear the search filter before reordering cards." });
+      return;
+    }
+    const sourceIndex = currentRows.findIndex(row => row.id === rowId);
+    const targetIndex = sourceIndex + direction;
+    if (sourceIndex < 0 || targetIndex < 0 || targetIndex >= currentRows.length) return;
+    reorderRows(rowId, currentRows[targetIndex].id);
+  };
+
+  const toggleRowEnabled = (row: ExcelRow) => {
+    const missingFields = getRequiredFieldErrors(row);
+    if (!row.isEnabled && missingFields.length > 0) {
+      setToast({ type: "error", message: `${row.code} cannot be enabled. Missing: ${missingFields.join(", ")}.` });
+      return;
+    }
+    setExcelRowsMap(prev => ({
+      ...prev,
+      [activeLessonCode]: prev[activeLessonCode].map(item =>
+        item.id === row.id
+          ? { ...item, isEnabled: !item.isEnabled, status: !item.isEnabled ? "ready" : "disabled" }
+          : item
+      )
+    }));
+    setIsDirty(true);
+  };
+
+  const handleTypeChange = (row: ExcelRow, type: ContentType) => {
+    setExcelRowsMap(prev => ({
+      ...prev,
+      [activeLessonCode]: prev[activeLessonCode].map(item =>
+        item.id === row.id
+          ? {
+              ...item,
+              type,
+              code: getNextSystemCode(type, row.id),
+              source: type === "guided_script" || type === "grammar" ? "\\" : item.source === "\\" ? "" : item.source,
+              reading: type === "guided_script" || type === "grammar" ? "" : item.reading,
+              status: "incomplete",
+              isEnabled: false
+            }
+          : item
+      )
+    }));
+    setIsDirty(true);
+  };
+
+  const saveDraft = () => {
+    setIsDirty(false);
+    setToast({ type: "success", message: `Draft saved for ${activeLessonCode}.` });
+  };
+
+  const submitLesson = () => {
+    const invalidRows = currentRows.filter(row => row.isEnabled && getRequiredFieldErrors(row).length > 0);
+    const duplicateCodes = currentRows.filter((row, index, rows) => rows.findIndex(item => item.code === row.code) !== index);
+    if (invalidRows.length || duplicateCodes.length) {
+      setToast({ type: "error", message: `Cannot submit: ${invalidRows.length} incomplete enabled row(s), ${duplicateCodes.length} duplicate code(s).` });
+      return;
+    }
+    if ((selectedLesson?.localizationCoverage || 0) < 100) {
+      setToast({ type: "error", message: `Cannot publish ${activeLessonCode}: native localization coverage is ${selectedLesson?.localizationCoverage || 0}%.` });
+      return;
+    }
+    setIsDirty(false);
+    setToast({ type: "success", message: `${activeLessonCode} submitted successfully and is ready for review.` });
+  };
+
+  const generateMissingAudio = () => {
+    const missingRows = currentRows.filter(r => r.ttsStatus === "draft" || r.ttsStatus === "failed");
+    if (missingRows.length === 0) {
+      setToast({ type: "success", message: "All audio files have already been generated." });
+      return;
+    }
+    missingRows.forEach(row => regenerateAudio(row.id));
+    setToast({ type: "success", message: `Generating audio for ${missingRows.length} items...` });
+  };
+
+  const buildImportPreview = (rawRows: string[][]) => {
+    const existingCodes = new Set(currentRows.map(row => row.code));
+    return rawRows.map((cells, index): ImportPreviewRow => {
+      const [code = "", sourceText = "", reading = "", meaningEn = "", meaningVn = "", meaningKr = "", meaningEs = ""] = cells.map(cell => cell.trim());
+      const type = code ? inferContentType(code) : "invalid";
+      const errors: string[] = [];
+      if (!code) errors.push("Missing code");
+      if (!code.startsWith(`${activeLessonCode}_`)) errors.push(`Code must start with ${activeLessonCode}_`);
+      if (type !== "guided_script" && !sourceText) errors.push("Missing source text");
+      if (!meaningEn && !meaningVn) errors.push(type === "guided_script" ? "Missing English script" : "Missing meaning");
+      const duplicate = existingCodes.has(code) || rawRows.some((other, otherIndex) => otherIndex !== index && other[0]?.trim() === code);
+      if (duplicate) errors.push("Duplicate code");
+      return {
+        rowNumber: index + 2,
+        code,
+        type,
+        sourceText,
+        reading,
+        meaningEn,
+        meaningVn,
+        meaningKr,
+        meaningEs,
+        status: duplicate ? "duplicate" : errors.length ? "invalid" : "valid",
+        errors
+      };
+    });
+  };
+
+  const handleImportFile = async (file: File) => {
+    setImportFileName(file.name);
+    if (!file.name.toLowerCase().endsWith(".csv")) {
+      const XLSX = await import("xlsx");
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: "array" });
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" }) as string[][];
+      const rows: string[][] = jsonData.map(row => {
+        const paddedRow = [...row, "", "", "", "", "", "", ""].slice(0, 7);
+        return paddedRow.map(cell => String(cell).trim());
+      }).filter(row => row.some(cell => cell !== ""));
+      setImportPreview(buildImportPreview(rows.slice(1)));
+      setShowImportPreview(true);
+      return;
+    }
+    if (file.name.toLowerCase().endsWith(".csv")) {
+      const text = await file.text();
+      const lines = text.split(/\r?\n/).filter(Boolean);
+      setImportPreview(buildImportPreview(lines.slice(1).map(line => line.split(","))));
+    } else {
+      const sampleRows = [
+        [`${activeLessonCode}_V99`, "示例", "shì lì", "example"],
+        [`${activeLessonCode}_S99`, "这是示例", "zhè shì shì lì", "This is an example"],
+        [`${activeLessonCode}_V99`, "重复", "chóng fù", "duplicate"],
+        ["OTHER_L101_V1", "错误", "cuò wù", ""]
+      ];
+      setImportPreview(buildImportPreview(sampleRows));
+    }
+    setShowImportPreview(true);
+  };
+
+  const confirmImport = () => {
+    const validRows = importPreview.filter(row => row.status === "valid");
+    const importedRows: ExcelRow[] = validRows.map((row, index) => ({
+      id: `import-${Date.now()}-${index}`,
+      no: currentRows.length + index + 1,
+      code: row.code,
+      type: row.type === "invalid" ? "vocab" : row.type,
+      source: row.type === "guided_script" || row.type === "grammar" ? "\\" : row.sourceText,
+      reading: row.type === "guided_script" || row.type === "grammar" ? "" : row.reading,
+      en: row.meaningEn,
+      vn: row.meaningVn,
+      kr: row.meaningKr,
+      es: row.meaningEs,
+      status: "ready",
+      isEnabled: false,
+      ttsStatus: "draft",
+      qaStatus: "pending"
+    }));
+    setExcelRowsMap(prev => ({
+      ...prev,
+      [activeLessonCode]: [...(prev[activeLessonCode] || []), ...importedRows]
+    }));
+    setShowImportPreview(false);
+    setIsDirty(true);
+    setToast({ type: "success", message: `Imported ${importedRows.length} valid row(s). Invalid and duplicate rows were skipped.` });
   };
 
   // ----------------------------------------------------
@@ -321,7 +606,7 @@ export default function CurriculumDashboard() {
         [activeLessonCode]: prev[activeLessonCode].map(row => row.id === id ? { 
           ...row, 
           ttsStatus: "success", 
-          qaStatus: "passed",
+          aiQaStatus: "passed",
           audioUrl: "https://www.soundjay.com/buttons/sounds/button-3.mp3" 
         } : row)
       }));
@@ -333,7 +618,7 @@ export default function CurriculumDashboard() {
   // ----------------------------------------------------
   const currentDrills = drillMap[activeLessonCode] || [];
 
-  const handleDrillEdit = (id: string, field: keyof DrillItem, val: string) => {
+  const handleDrillEdit = (id: string, field: keyof DrillItem, val: any) => {
     setDrillMap(prev => ({
       ...prev,
       [activeLessonCode]: prev[activeLessonCode].map(d => d.id === id ? { ...d, [field]: val } : d)
@@ -342,14 +627,18 @@ export default function CurriculumDashboard() {
 
   const addDrillFromExcel = (row: ExcelRow) => {
     const isVocab = row.code.includes("_V");
-    const cleanText = row.cn.split("|")[0].trim();
+    const cleanText = row.source;
     const cleanMeaning = row.en;
     
+    drillIdRef.current += 1;
     const newDrill: DrillItem = {
-      id: `dr-${Date.now()}`,
+      id: `dr-${drillIdRef.current}`,
       drillType: isVocab ? "listen_repeat" : "fill_blank",
       scriptText: cleanText,
-      meaning: cleanMeaning,
+      meaningEn: row.en,
+      meaningVn: row.vn,
+      meaningKr: row.kr,
+      meaningEs: row.es,
       sourceCode: row.code
     };
     
@@ -369,28 +658,15 @@ export default function CurriculumDashboard() {
   // ----------------------------------------------------
   // TAB 4: ROLEPLAY SETUP ACTIONS (UC04 - Layer 3)
   // ----------------------------------------------------
-  const currentRoleplay = roleplayMap[activeLessonCode] || { id: "new", setup: "", notes: "", goals: [] };
-
-  const handleRoleplaySetupChange = (val: string) => {
-    setRoleplayMap(prev => ({
-      ...prev,
-      [activeLessonCode]: { ...currentRoleplay, setup: val }
-    }));
-  };
-
-  const handleRoleplayNotesChange = (val: string) => {
-    setRoleplayMap(prev => ({
-      ...prev,
-      [activeLessonCode]: { ...currentRoleplay, notes: val }
-    }));
-  };
+  const currentRoleplay = roleplayMap[activeLessonCode] || { id: "new", goals: [] };
 
   const addRoleplayGoal = () => {
     const newGoal: RoleplayGoal = {
       id: `g-${Date.now()}`,
       orderIndex: currentRoleplay.goals.length + 1,
-      successCriteria: "Speak fluently without hesitations",
-      descriptionNative: "Nói lưu loát không ngập ngừng"
+      successCriteria: "",
+      descriptionNative: "",
+      isEnabled: true
     };
     setRoleplayMap(prev => ({
       ...prev,
@@ -399,9 +675,11 @@ export default function CurriculumDashboard() {
         goals: [...currentRoleplay.goals, newGoal]
       }
     }));
+    
+    // Auto-focus logic can be handled via ref or just standard react flow, but since we don't have a specific ref array for goals, we let the user tab to it or add a timeout if needed.
   };
 
-  const editRoleplayGoal = (goalId: string, field: keyof RoleplayGoal, val: string) => {
+  const editRoleplayGoal = (goalId: string, field: keyof RoleplayGoal, val: any) => {
     setRoleplayMap(prev => ({
       ...prev,
       [activeLessonCode]: {
@@ -412,11 +690,39 @@ export default function CurriculumDashboard() {
   };
 
   const removeRoleplayGoal = (goalId: string) => {
+    setRoleplayMap(prev => {
+      const updatedGoals = currentRoleplay.goals.filter(g => g.id !== goalId);
+      const reindexed = updatedGoals.map((g, idx) => ({ ...g, orderIndex: idx + 1 }));
+      return {
+        ...prev,
+        [activeLessonCode]: {
+          ...currentRoleplay,
+          goals: reindexed
+        }
+      }
+    });
+  };
+
+  const reorderRoleplayGoal = (goalId: string, direction: "up" | "down") => {
+    const index = currentRoleplay.goals.findIndex(g => g.id === goalId);
+    if (index < 0) return;
+    if (direction === "up" && index === 0) return;
+    if (direction === "down" && index === currentRoleplay.goals.length - 1) return;
+
+    const newGoals = [...currentRoleplay.goals];
+    const swapIndex = direction === "up" ? index - 1 : index + 1;
+    
+    const temp = newGoals[index];
+    newGoals[index] = newGoals[swapIndex];
+    newGoals[swapIndex] = temp;
+    
+    const reindexed = newGoals.map((g, idx) => ({ ...g, orderIndex: idx + 1 }));
+
     setRoleplayMap(prev => ({
       ...prev,
       [activeLessonCode]: {
         ...currentRoleplay,
-        goals: currentRoleplay.goals.filter(g => g.id !== goalId)
+        goals: reindexed
       }
     }));
   };
@@ -425,12 +731,13 @@ export default function CurriculumDashboard() {
   const filteredRows = currentRows.filter(row => {
     return (
       row.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      row.cn.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      row.source.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      row.reading.toLowerCase().includes(searchQuery.toLowerCase()) ||
       row.en.toLowerCase().includes(searchQuery.toLowerCase())
     );
   });
 
-  const activePair = mockLanguagePairs.find(p => p.id === selectedPairId);
+  const activeLanguage = mockLanguages.find(language => language.code === selectedLanguageCode);
 
   return (
     <div className="flex h-screen bg-[#F8F7F5] text-stone-800 overflow-hidden font-sans">
@@ -446,28 +753,33 @@ export default function CurriculumDashboard() {
             </div>
             <div>
               <h1 className="text-sm font-bold font-serif text-stone-800">Yapsu Pipeline</h1>
-              <p className="text-[9px] text-stone-500 font-semibold tracking-wider uppercase">Curriculum Engine</p>
+              <p className="text-[9px] text-stone-800 font-semibold tracking-wider uppercase">Curriculum Engine</p>
             </div>
           </div>
 
-          {/* Language Pair Selector */}
+          {/* Learning Language Selector */}
           <div className="p-4 border-b border-stone-100 bg-stone-50/40">
-            <label className="block text-[9px] text-stone-500 uppercase font-bold tracking-wider mb-2">
-              Language Pair
+            <label className="block text-[9px] text-stone-800 uppercase font-bold tracking-wider mb-2">
+              Learning Language
             </label>
             <div className="relative">
               <select 
-                value={selectedPairId} 
-                onChange={(e) => setSelectedPairId(e.target.value)}
+                value={selectedLanguageCode} 
+                onChange={(e) => {
+                  const languageCode = e.target.value;
+                  setSelectedLanguageCode(languageCode);
+                  setSelectedLesson(mockLessons[languageCode]?.[0] || null);
+                  setIsDirty(false);
+                }}
                 className="w-full bg-white border border-stone-200 rounded-xl py-2 pl-3 pr-8 text-xs text-stone-855 font-medium focus:outline-none focus:border-stone-400 transition-colors duration-200 cursor-pointer appearance-none"
               >
-                {mockLanguagePairs.map((pair) => (
-                  <option key={pair.id} value={pair.id}>
-                    {pair.flag} {pair.label}
+                {mockLanguages.map((language) => (
+                  <option key={language.id} value={language.code}>
+                    {language.flag} {language.name} ({language.script})
                   </option>
                 ))}
               </select>
-              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-stone-500">
+              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-stone-800">
                 <Globe size={12} />
               </div>
             </div>
@@ -475,11 +787,11 @@ export default function CurriculumDashboard() {
 
           {/* Lessons list */}
           <div className="p-4">
-            <div className="text-[9px] text-stone-500 uppercase font-bold tracking-wider mb-2 px-1">
+            <div className="text-[9px] text-stone-800 uppercase font-bold tracking-wider mb-2 px-1">
               Select Lesson
             </div>
             <div className="space-y-1">
-              {(mockLessons[selectedPairId] || []).map((lesson) => {
+              {(mockLessons[selectedLanguageCode] || []).map((lesson) => {
                 const isSelected = selectedLesson?.id === lesson.id;
                 return (
                   <button
@@ -493,15 +805,19 @@ export default function CurriculumDashboard() {
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-[9px] font-mono font-bold text-stone-500">{lesson.lessonCode}</span>
-                        <span className={`text-[8px] px-1.5 py-0.5 rounded font-semibold border ${
-                          lesson.status === "published" 
-                            ? "bg-emerald-50 text-emerald-700 border-emerald-100" 
-                            : "bg-amber-50 text-amber-700 border-amber-100"
-                        }`}>{lesson.status}</span>
+                        <span className="text-[9px] font-mono font-bold text-stone-800">{lesson.lessonCode}</span>
+                        <span className={`text-[8px] px-1.5 py-0.5 rounded font-semibold border ${statusStyles[lesson.status]}`}>
+                          {lesson.status.replace("_", " ")}
+                        </span>
                       </div>
                       <h4 className="text-xs font-bold text-stone-800 truncate group-hover:text-stone-800 font-serif">{lesson.title}</h4>
-                      <p className="text-[10px] text-stone-500 truncate mt-0.5">{lesson.description}</p>
+                      <p className="text-[10px] text-stone-800 truncate mt-0.5">{lesson.description}</p>
+                      <div className="mt-2 flex items-center justify-between text-[9px] text-stone-800">
+                        <span>Localization coverage</span>
+                        <span className={lesson.localizationCoverage === 100 ? "text-emerald-700 font-semibold" : "text-amber-700 font-semibold"}>
+                          {lesson.localizationCoverage}%
+                        </span>
+                      </div>
                     </div>
                   </button>
                 );
@@ -511,7 +827,7 @@ export default function CurriculumDashboard() {
         </div>
 
         {/* Sidebar Footer */}
-        <div className="p-4 border-t border-stone-100 bg-stone-50/30 flex items-center justify-between text-[10px] text-stone-500">
+        <div className="p-4 border-t border-stone-100 bg-stone-50/30 flex items-center justify-between text-[10px] text-stone-800">
           <div className="flex items-center space-x-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
             <span>Presentation Mockup Mode</span>
@@ -528,10 +844,10 @@ export default function CurriculumDashboard() {
         <header className="bg-white border-b border-stone-200/80 px-8 flex flex-col justify-end pt-4">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <div className="text-[9px] font-mono text-stone-500 uppercase font-bold tracking-wider">Active Workspace</div>
+              <div className="text-[9px] font-mono text-stone-800 uppercase font-bold tracking-wider">Active Workspace</div>
               <h2 className="text-xl font-medium font-serif text-stone-800 flex items-center space-x-2 mt-0.5">
                 <span>{selectedLesson ? selectedLesson.title : "No Lesson Selected"}</span>
-                <span className="text-xs font-mono font-normal bg-stone-50 border border-stone-200/60 py-0.5 px-2 rounded text-stone-500">
+                <span className="text-xs font-mono font-normal bg-stone-50 border border-stone-200/60 py-0.5 px-2 rounded text-stone-800">
                   {activeLessonCode}
                 </span>
               </h2>
@@ -540,19 +856,19 @@ export default function CurriculumDashboard() {
             {/* Quick Stats Summary */}
             <div className="flex space-x-6 text-xs bg-stone-50/80 p-2 rounded-xl border border-stone-200/60">
               <div className="flex flex-col">
-                <span className="text-[9px] text-stone-500 uppercase font-bold">Total Rows</span>
+                <span className="text-[9px] text-stone-800 uppercase font-bold">Total Rows</span>
                 <span className="text-xs font-bold text-stone-800">{currentRows.length}</span>
               </div>
               <span className="w-px bg-stone-200 my-1"></span>
               <div className="flex flex-col">
-                <span className="text-[9px] text-stone-500 uppercase font-bold">Vocabs / Sentences</span>
+                <span className="text-[9px] text-stone-800 uppercase font-bold">Vocabs / Sentences</span>
                 <span className="text-xs font-bold text-stone-800">
                   {currentRows.filter(r => r.code.includes("_V") || r.code.includes("_S")).length}
                 </span>
               </div>
               <span className="w-px bg-stone-200 my-1"></span>
               <div className="flex flex-col">
-                <span className="text-[9px] text-stone-500 uppercase font-bold">Audio Ready</span>
+                <span className="text-[9px] text-stone-800 uppercase font-bold">Audio Ready</span>
                 <span className="text-xs font-bold text-emerald-700">{currentRows.filter(s => s.ttsStatus === "success").length}</span>
               </div>
             </div>
@@ -565,23 +881,11 @@ export default function CurriculumDashboard() {
               className={`pb-3 px-4 font-serif font-medium text-xs border-b-2 transition-colors duration-200 flex items-center space-x-1.5 cursor-pointer ${
                 activeTab === "excel"
                   ? "border-stone-800 text-stone-800 font-semibold"
-                  : "border-transparent text-stone-500 hover:text-stone-850"
+                  : "border-transparent text-stone-800 hover:text-stone-850"
               }`}
             >
               <Grid size={12} />
-              <span>Spreadsheet Grid (UC01)</span>
-            </button>
-            
-            <button
-              onClick={() => setActiveTab("tutor")}
-              className={`pb-3 px-4 font-serif font-medium text-xs border-b-2 transition-colors duration-200 flex items-center space-x-1.5 cursor-pointer ${
-                activeTab === "tutor"
-                  ? "border-stone-800 text-stone-800 font-semibold"
-                  : "border-transparent text-stone-500 hover:text-stone-850"
-              }`}
-            >
-              <Volume2 size={12} />
-              <span>Tutor Audio QA (UC02)</span>
+              <span>Curriculum & Audio QA (UC01 + UC02)</span>
             </button>
             
             <button
@@ -589,7 +893,7 @@ export default function CurriculumDashboard() {
               className={`pb-3 px-4 font-serif font-medium text-xs border-b-2 transition-colors duration-200 flex items-center space-x-1.5 cursor-pointer ${
                 activeTab === "drills"
                   ? "border-stone-800 text-stone-800 font-semibold"
-                  : "border-transparent text-stone-500 hover:text-stone-850"
+                  : "border-transparent text-stone-800 hover:text-stone-850"
               }`}
             >
               <Sliders size={12} />
@@ -601,7 +905,7 @@ export default function CurriculumDashboard() {
               className={`pb-3 px-4 font-serif font-medium text-xs border-b-2 transition-colors duration-200 flex items-center space-x-1.5 cursor-pointer ${
                 activeTab === "roleplay"
                   ? "border-stone-800 text-stone-800 font-semibold"
-                  : "border-transparent text-stone-500 hover:text-stone-850"
+                  : "border-transparent text-stone-800 hover:text-stone-850"
               }`}
             >
               <MessageSquare size={12} />
@@ -618,51 +922,108 @@ export default function CurriculumDashboard() {
           {activeTab === "excel" && (
             <div className="space-y-6">
               
-              <div className="flex justify-between items-center bg-white p-6 border border-stone-200/80 rounded-2xl">
+              <div className="flex justify-between items-start gap-6 bg-white p-6 border border-stone-200/80 rounded-2xl">
                 <div>
-                  <h3 className="text-sm font-bold text-stone-800 font-serif">Spreadsheet Editor Interface</h3>
-                  <p className="text-[11px] text-stone-500 mt-0.5 font-sans">
-                    Matches the exact layout of <code>[Original] Yapsu AI Curriculum.xlsx</code>. Click cells to edit.
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-bold text-stone-800 font-serif">Curriculum & Language Editor</h3>
+                    {isDirty && (
+                      <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-700">
+                        Unsaved changes
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-stone-800 mt-0.5 font-sans">
+                    {activeLanguage?.name} lesson source data mapped to Guided Script, Vocab, Sentence and Grammar entities.
                   </p>
+                  <div className="mt-3 flex items-center gap-3 text-[10px] text-stone-800">
+                    <span className="font-mono">{activeLessonCode}</span>
+                    <ChevronRight size={10} />
+                    <span>{selectedLesson?.localizationCoverage || 0}% localization coverage</span>
+                    <ChevronRight size={10} />
+                    <span>{currentRows.filter(row => row.isEnabled).length}/{currentRows.length} enabled</span>
+                  </div>
                 </div>
                 
-                {/* Actions */}
-                <div className="flex space-x-2 text-xs font-sans">
+                <div className="flex flex-wrap justify-end gap-2 text-xs font-sans">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".xlsx,.xls,.csv"
+                    className="hidden"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) void handleImportFile(file);
+                      event.target.value = "";
+                    }}
+                  />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-1.5 rounded-lg border border-stone-200 bg-white px-3 py-1.5 font-medium text-stone-700 transition-colors hover:bg-stone-50"
+                  >
+                    <FileSpreadsheet size={12} />
+                    <span>Import Curriculum</span>
+                  </button>
+                  <button
+                    onClick={saveDraft}
+                    disabled={!isDirty}
+                    className="flex items-center gap-1.5 rounded-lg border border-stone-300 bg-white px-3 py-1.5 font-medium text-stone-700 transition-colors hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Save size={12} />
+                    <span>Save Draft</span>
+                  </button>
+                  <button
+                    onClick={generateMissingAudio}
+                    className="flex items-center gap-1.5 rounded-lg border border-stone-200 bg-white px-3 py-1.5 font-medium text-stone-700 transition-colors hover:bg-stone-50"
+                  >
+                    <Volume2 size={12} />
+                    <span>Generate Missing Audio</span>
+                  </button>
+                  <button
+                    onClick={submitLesson}
+                    className="flex items-center gap-1.5 rounded-lg border border-stone-800 bg-stone-800 px-3 py-1.5 font-medium text-white transition-colors hover:bg-stone-700"
+                  >
+                    <CheckCircle2 size={12} />
+                    <span>Submit Lesson</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center gap-4 rounded-2xl border border-stone-200/80 bg-white p-4">
+                <div className="flex flex-wrap gap-2 text-xs font-sans">
                   <button 
                     onClick={() => addExcelRow("tutor")}
                     className="bg-white border border-stone-200 text-stone-700 hover:bg-stone-50 py-1.5 px-3 rounded-lg font-medium cursor-pointer transition-colors duration-200 flex items-center space-x-1"
                   >
-                    <Plus size={11} />
-                    <span>+ Tutor Card</span>
+                    <span>Tutor Card</span>
                   </button>
                   <button 
                     onClick={() => addExcelRow("vocab")}
                     className="bg-stone-800 text-white hover:bg-stone-700 py-1.5 px-3 rounded-lg font-medium cursor-pointer transition-colors duration-200 flex items-center space-x-1 border border-stone-800"
                   >
-                    <Plus size={11} />
-                    <span>+ Vocab Card</span>
+                    <span>Vocab Card</span>
                   </button>
                   <button 
                     onClick={() => addExcelRow("sentence")}
                     className="bg-white border border-stone-200 text-stone-700 hover:bg-stone-50 py-1.5 px-3 rounded-lg font-medium cursor-pointer transition-colors duration-200 flex items-center space-x-1"
                   >
-                    <Plus size={11} />
-                    <span>+ Sentence Card</span>
+                    <span>Sentence Card</span>
                   </button>
                   <button 
                     onClick={() => addExcelRow("grammar")}
                     className="bg-white border border-stone-200 text-stone-700 hover:bg-stone-50 py-1.5 px-3 rounded-lg font-medium cursor-pointer transition-colors duration-200 flex items-center space-x-1"
                   >
-                    <Plus size={11} />
-                    <span>+ Grammar Card</span>
+                    <span>Grammar Card</span>
                   </button>
                 </div>
+                <p className="max-w-md text-right text-[10px] leading-relaxed text-stone-800">
+                  System codes are generated from the lesson and content type. A record can only be enabled after all required fields are complete.
+                </p>
               </div>
 
               {/* Search / Toolbar */}
               <div className="flex justify-between items-center space-x-4">
                 <div className="relative flex-1 max-w-md">
-                  <Search className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-stone-500 my-auto" size={13} />
+                  <Search className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-stone-800 my-auto" size={13} />
                   <input
                     type="text"
                     placeholder="Search spreadsheet cells..."
@@ -672,276 +1033,293 @@ export default function CurriculumDashboard() {
                   />
                 </div>
                 
-                <span className="text-[11px] text-stone-500 italic font-serif">
-                  Note: Split CN texts via <code>|</code> characters to register readings.
+                <span className="text-[11px] text-stone-800 italic font-serif">
+                  {searchQuery.trim()
+                    ? "Clear search to reorder cards."
+                    : "Drag the handle or use arrows to change card order."}
                 </span>
               </div>
 
               {/* Spreadsheet Grid (Editorial styling) */}
-              <div className="bg-white border border-stone-200/80 rounded-2xl overflow-hidden shadow-none">
-                <table className="w-full text-left border-collapse text-xs table-fixed">
+              <div className="bg-white border border-stone-200/80 rounded-2xl overflow-x-auto shadow-none">
+                <table className="w-full min-w-[1750px] text-left border-collapse text-xs table-fixed">
                   <thead>
-                    <tr className="border-b border-stone-200 text-[10px] text-stone-500 uppercase font-semibold tracking-wider bg-stone-50/50">
-                      <th className="py-4 px-6 w-16 text-center font-serif">No.</th>
-                      <th className="py-4 px-6 w-36 font-serif">Code</th>
-                      <th className="py-4 px-6 w-72 font-serif">CN (Script | Reading)</th>
-                      <th className="py-4 px-6 font-serif">EN (English / Script)</th>
-                      <th className="py-4 px-6 w-24 text-center font-serif">Delete</th>
+                    <tr className="border-b border-stone-200 text-[10px] text-stone-800 uppercase font-semibold tracking-wider bg-stone-50/50">
+                      <th className="py-4 px-4 w-20 text-center font-serif">Order</th>
+                      <th className="py-4 px-4 w-32 font-serif">Content Type</th>
+                      <th className="py-4 px-4 w-36 font-serif">System Code</th>
+                      <th className="py-4 px-4 w-40 font-serif">Source</th>
+                      <th className="py-4 px-4 w-40 font-serif">Reading</th>
+                      <th className="py-4 px-4 w-56 font-serif">English (Script)</th>
+                      <th className="py-4 px-4 w-48 font-serif">Vietnamese</th>
+                      <th className="py-4 px-4 w-48 font-serif">Korean</th>
+                      <th className="py-4 px-4 w-48 font-serif">Spanish</th>
+                      <th className="py-4 px-4 w-28 text-center font-serif">Audio</th>
+                      <th className="py-4 px-4 w-24 text-center font-serif">AI QA</th>
+                      <th className="py-4 px-4 w-24 text-center font-serif">Human QA</th>
+                      <th className="py-4 px-4 w-28 font-serif">Status</th>
+                      <th className="py-4 px-4 w-20 text-center font-serif">Enabled</th>
+                      <th className="py-4 px-4 w-24 text-center font-serif">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-stone-100 font-sans">
                     {filteredRows.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="py-8 text-center text-stone-400 italic">No spreadsheet rows configured.</td>
+                        <td colSpan={8} className="py-8 text-center text-stone-600 italic">No curriculum records configured.</td>
                       </tr>
                     ) : (
                       filteredRows.map((row) => {
-                        const isTutor = row.cn === "\\";
+                        const contentType = row.type || inferContentType(row.code);
+                        const isTutor = contentType === "guided_script";
+                        const rowStatus = getRowStatus(row);
+                        const requiredErrors = getRequiredFieldErrors(row);
                         return (
-                          <tr key={row.id} className="hover:bg-stone-50/30 transition-colors duration-200">
-                            {/* No */}
-                            <td className="py-4 px-6 text-center font-mono text-stone-500">{row.no}</td>
-                            
-                            {/* Code */}
-                            <td className="py-4 px-6">
-                              <input 
-                                type="text"
-                                value={row.code}
-                                onChange={(e) => handleCellEdit(row.id, "code", e.target.value)}
-                                className="w-full bg-transparent border border-transparent hover:border-stone-200 focus:border-stone-400 focus:ring-0 rounded-lg px-2 py-1 text-xs text-stone-800 font-mono font-semibold focus:outline-none transition-colors duration-200"
-                              />
+                          <tr
+                            key={row.id}
+                            ref={element => { rowRefs.current[row.id] = element; }}
+                            onDragOver={event => {
+                              if (searchQuery.trim()) return;
+                              event.preventDefault();
+                              if (draggedRowId && draggedRowId !== row.id) setDragOverRowId(row.id);
+                            }}
+                            onDragLeave={() => {
+                              if (dragOverRowId === row.id) setDragOverRowId(null);
+                            }}
+                            onDrop={event => {
+                              event.preventDefault();
+                              if (draggedRowId) reorderRows(draggedRowId, row.id);
+                              setDraggedRowId(null);
+                              setDragOverRowId(null);
+                            }}
+                            className={`transition-colors duration-500 ${
+                              dragOverRowId === row.id
+                                ? "bg-sky-50 ring-2 ring-inset ring-sky-300"
+                                : highlightedRowId === row.id
+                                  ? "bg-amber-50 ring-1 ring-inset ring-amber-200"
+                                  : "hover:bg-stone-50/30"
+                            } ${draggedRowId === row.id ? "opacity-50" : ""}`}
+                          >
+                            <td className="py-4 px-4">
+                              <div className="flex items-center justify-center gap-2">
+                                <button
+                                  type="button"
+                                  draggable={!searchQuery.trim()}
+                                  onDragStart={event => {
+                                    if (searchQuery.trim()) {
+                                      event.preventDefault();
+                                      return;
+                                    }
+                                    event.dataTransfer.effectAllowed = "move";
+                                    setDraggedRowId(row.id);
+                                  }}
+                                  onDragEnd={() => {
+                                    setDraggedRowId(null);
+                                    setDragOverRowId(null);
+                                  }}
+                                  title={searchQuery.trim() ? "Clear search to reorder" : "Drag to reorder"}
+                                  className="cursor-grab rounded p-1 text-stone-600 hover:bg-stone-100 hover:text-stone-700 active:cursor-grabbing disabled:cursor-not-allowed"
+                                >
+                                  <GripVertical size={13} />
+                                </button>
+                                <span className="min-w-5 text-center font-mono text-stone-800">{row.no}</span>
+                              </div>
                             </td>
-                            
-                            {/* CN cell */}
-                            <td className="py-4 px-6">
+                            <td className="py-4 px-4">
+                              <select
+                                value={contentType}
+                                onChange={event => handleTypeChange(row, event.target.value as ContentType)}
+                                className="w-full rounded-lg border border-stone-200 bg-white px-2 py-1.5 text-[11px] font-medium text-stone-700 focus:border-stone-400 focus:outline-none"
+                              >
+                                <option value="guided_script">Guided Script</option>
+                                <option value="vocab">Vocab</option>
+                                <option value="sentence">Sentence</option>
+                                <option value="grammar">Grammar</option>
+                              </select>
+                            </td>
+                            <td className="py-4 px-4">
+                              <div className="flex items-center gap-1.5 rounded-lg border border-stone-100 bg-stone-50 px-2 py-1.5 font-mono text-[11px] font-semibold text-stone-700">
+                                <Lock size={10} className="shrink-0 text-stone-600" />
+                                <span className="truncate">{row.code}</span>
+                              </div>
+                            </td>
+                            <td className="py-4 px-4">
                               <input 
+                                ref={element => { if (!isTutor) firstFieldRefs.current[row.id] = element; }}
                                 type="text"
-                                value={row.cn}
-                                onChange={(e) => handleCellEdit(row.id, "cn", e.target.value)}
+                                value={row.source}
+                                onChange={(e) => handleCellEdit(row.id, "source", e.target.value)}
+                                disabled={isTutor}
+                                placeholder={isTutor ? "Not applicable" : "Source text"}
                                 className={`w-full bg-transparent border border-transparent hover:border-stone-200 focus:border-stone-400 focus:ring-0 rounded-lg px-2 py-1 text-xs focus:outline-none font-medium transition-colors duration-200 ${
-                                  isTutor ? "text-stone-500 font-mono italic" : "text-stone-805"
+                                  isTutor ? "text-stone-600 font-mono italic cursor-not-allowed" : "text-stone-800"
                                 }`}
                               />
                             </td>
-                            
-                            {/* EN cell */}
-                            <td className="py-4 px-6">
+                            <td className="py-4 px-4">
+                              <input 
+                                type="text"
+                                value={row.reading}
+                                onChange={(e) => handleCellEdit(row.id, "reading", e.target.value)}
+                                disabled={isTutor}
+                                placeholder={isTutor ? "Not applicable" : "Reading / Pinyin"}
+                                className={`w-full bg-transparent border border-transparent hover:border-stone-200 focus:border-stone-400 focus:ring-0 rounded-lg px-2 py-1 text-xs focus:outline-none font-medium transition-colors duration-200 ${
+                                  isTutor ? "text-stone-600 font-mono italic cursor-not-allowed" : "text-stone-800"
+                                }`}
+                              />
+                            </td>
+                            <td className="py-4 px-4">
                               <textarea
+                                ref={element => { if (isTutor) firstFieldRefs.current[row.id] = element; }}
                                 value={row.en}
                                 onChange={(e) => handleCellEdit(row.id, "en", e.target.value)}
+                                placeholder={isTutor ? "Required: English guided script" : "Optional: Meaning"}
                                 className={`w-full bg-transparent border border-transparent hover:border-stone-200 focus:border-stone-400 focus:ring-0 rounded-lg px-2 py-1 text-xs focus:outline-none leading-relaxed resize-none transition-colors duration-200 ${
-                                  isTutor ? "text-stone-800 font-serif" : "text-stone-500"
+                                  isTutor ? "text-stone-800 font-serif" : "text-stone-800"
                                 }`}
                                 rows={isTutor && row.en.length > 80 ? 3 : 1}
                               />
                             </td>
-                            
-                            {/* Delete Action */}
-                            <td className="py-4 px-6 text-center">
-                              <button 
-                                onClick={() => deleteExcelRow(row.id)}
-                                className="p-1.5 text-stone-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors duration-200 cursor-pointer"
-                              >
-                                <Trash2 size={13} />
-                              </button>
+                            <td className="py-4 px-4">
+                              <textarea
+                                value={row.vn}
+                                onChange={(e) => handleCellEdit(row.id, "vn", e.target.value)}
+                                placeholder={isTutor ? "Optional: Vi translation" : "Optional: Meaning"}
+                                className={`w-full bg-transparent border border-transparent hover:border-stone-200 focus:border-stone-400 focus:ring-0 rounded-lg px-2 py-1 text-xs focus:outline-none leading-relaxed resize-none transition-colors duration-200 ${
+                                  isTutor ? "text-stone-800 font-serif" : "text-stone-800"
+                                }`}
+                                rows={isTutor && row.vn.length > 80 ? 3 : 1}
+                              />
                             </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-            </div>
-          )}
-
-          {/* TAB 2: TUTOR & AUDIO QA VIEW */}
-          {activeTab === "tutor" && (
-            <div className="space-y-6">
-              
-              <div className="bg-white p-6 border border-stone-200/80 rounded-2xl flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-bold text-stone-800 font-serif">Tutor Pipeline & Audio QA Dashboard</h3>
-                  <p className="text-[11px] text-stone-500 mt-0.5">Approve translations and preview the generated pronunciation audio files.</p>
-                </div>
-                
-                <div className="flex items-center space-x-2 text-xs font-sans">
-                  <span className="flex items-center space-x-1.5 text-emerald-700 font-semibold bg-emerald-50 border border-emerald-100/80 px-2.5 py-1 rounded-full">
-                    <CheckCircle2 size={11} />
-                    <span>Passed: {currentRows.filter(s => s.qaStatus === "passed").length}</span>
-                  </span>
-                  <span className="flex items-center space-x-1.5 text-rose-700 font-semibold bg-rose-50 border border-rose-100/80 px-2.5 py-1 rounded-full">
-                    <XCircle size={11} />
-                    <span>Failed: {currentRows.filter(s => s.qaStatus === "failed").length}</span>
-                  </span>
-                </div>
-              </div>
-
-              {/* QA Segment Table */}
-              <div className="bg-white border border-stone-200/80 rounded-2xl overflow-hidden shadow-none">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="border-b border-stone-200 text-[10px] text-stone-500 uppercase font-semibold tracking-wider bg-stone-50/50">
-                      <th className="py-4 px-6 w-16 text-center font-serif">Idx</th>
-                      <th className="py-4 px-6 w-36 font-serif">Code</th>
-                      <th className="py-4 px-6 w-1/3 font-serif">Tutor Source Text</th>
-                      <th className="py-4 px-6 font-serif">Translation Overlay (Native)</th>
-                      <th className="py-4 px-6 w-44 font-serif">Audio Status</th>
-                      <th className="py-4 px-6 w-44 font-serif">Human QA</th>
-                      <th className="py-4 px-6 w-24 text-center font-serif">Regen</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-stone-100 font-sans">
-                    {currentRows.length === 0 ? (
-                      <tr>
-                        <td colSpan={7} className="py-6 text-center text-stone-400 italic">No segments loaded. Add items to Tab 1.</td>
-                      </tr>
-                    ) : (
-                      currentRows.map((row) => {
-                        const isFailed = row.qaStatus === "failed";
-                        const isTutor = row.cn === "\\";
-                        
-                        return (
-                          <tr 
-                            key={row.id} 
-                            className={`transition-colors duration-200 ${
-                              isFailed ? "bg-rose-500/[0.01] border-l-2 border-l-rose-500" : "hover:bg-stone-50/20"
-                            }`}
-                          >
-                            {/* Index */}
-                            <td className="py-4 px-6 text-center font-mono text-stone-500">#{row.no}</td>
-                            
-                            {/* Card Code */}
-                            <td className="py-4 px-6 font-mono font-semibold text-stone-700">{row.code}</td>
-                            
-                            {/* Source Text */}
-                            <td className="py-4 px-6">
-                              {isFailed ? (
-                                <div className="space-y-1">
-                                  <textarea 
-                                    value={row.cn} 
-                                    onChange={(e) => handleCellEdit(row.id, "cn", e.target.value)}
-                                    className="w-full bg-transparent border border-rose-200 rounded-lg p-2 text-xs text-stone-800 font-bold focus:outline-none focus:border-rose-400 focus:ring-0 transition-colors duration-200"
-                                    rows={2}
-                                  />
-                                  <span className="text-[9px] text-rose-600 flex items-center space-x-1 font-medium">
-                                    <AlertTriangle size={10} />
-                                    <span>Failed QA: Correct script text and click Regenerate.</span>
-                                  </span>
-                                </div>
-                              ) : (
-                                <div className="space-y-1.5">
-                                  <div className="text-sm font-bold text-stone-800 tracking-wide font-serif">
-                                    {isTutor ? "Tutor Speech Segment" : row.cn.split("|")[0].trim()}
-                                  </div>
-                                  {!isTutor && row.cn.includes("|") && (
-                                    <div className="text-[10px] text-[#C27A5C] font-mono">
-                                      {row.cn.split("|")[1].trim()}
-                                    </div>
-                                  )}
-                                  {isTutor && (
-                                    <div className="text-[11px] text-stone-500 leading-relaxed font-serif max-h-24 overflow-y-auto pr-2">
-                                      {row.en}
-                                    </div>
-                                  )}
-                                </div>
-                              )}
+                            <td className="py-4 px-4">
+                              <textarea
+                                value={row.kr}
+                                onChange={(e) => handleCellEdit(row.id, "kr", e.target.value)}
+                                placeholder={isTutor ? "Optional: Kr translation" : "Optional: Meaning"}
+                                className={`w-full bg-transparent border border-transparent hover:border-stone-200 focus:border-stone-400 focus:ring-0 rounded-lg px-2 py-1 text-xs focus:outline-none leading-relaxed resize-none transition-colors duration-200 ${
+                                  isTutor ? "text-stone-800 font-serif" : "text-stone-800"
+                                }`}
+                                rows={isTutor && row.kr.length > 80 ? 3 : 1}
+                              />
                             </td>
-
-                            {/* Localized Translation Input */}
-                            <td className="py-4 px-6">
-                              {!isTutor ? (
-                                <input 
-                                  type="text"
-                                  value={row.en}
-                                  onChange={(e) => handleTranslationEdit(row.id, e.target.value)}
-                                  placeholder="Nhập bản dịch..."
-                                  className="w-full bg-transparent border border-stone-200 rounded-lg px-2.5 py-1.5 text-xs text-stone-800 font-medium focus:border-stone-400 focus:outline-none focus:ring-0 transition-colors duration-200"
-                                />
-                              ) : (
-                                <span className="text-[10px] text-stone-500 italic">Instruction Segment</span>
-                              )}
+                            <td className="py-4 px-4">
+                              <textarea
+                                value={row.es}
+                                onChange={(e) => handleCellEdit(row.id, "es", e.target.value)}
+                                placeholder={isTutor ? "Optional: Es translation" : "Optional: Meaning"}
+                                className={`w-full bg-transparent border border-transparent hover:border-stone-200 focus:border-stone-400 focus:ring-0 rounded-lg px-2 py-1 text-xs focus:outline-none leading-relaxed resize-none transition-colors duration-200 ${
+                                  isTutor ? "text-stone-800 font-serif" : "text-stone-800"
+                                }`}
+                                rows={isTutor && row.es.length > 80 ? 3 : 1}
+                              />
                             </td>
-
-                            {/* Audio Status */}
-                            <td className="py-4 px-6">
-                              <div className="space-y-1.5">
-                                {row.ttsStatus === "success" && (
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px] font-bold">
-                                    Generated
-                                  </span>
-                                )}
-                                {row.ttsStatus === "failed" && (
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-100 text-[10px] font-bold">
-                                    Failed
-                                  </span>
+                            <td className="py-4 px-4 align-top">
+                              <div className="flex flex-col items-center gap-1.5">
+                                {row.ttsStatus === "success" && row.audioUrl && (
+                                  <MiniAudioPlayer url={row.audioUrl} />
                                 )}
                                 {row.ttsStatus === "generating" && (
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-100 text-[10px] font-bold animate-pulse">
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-100 text-[9px] font-bold animate-pulse">
                                     <Loader2 size={10} className="mr-1 animate-spin" />
                                     Generating
                                   </span>
                                 )}
-                                {row.ttsStatus === "draft" && (
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-stone-50 text-stone-500 border border-stone-200 text-[10px] font-bold">
-                                    Draft
-                                  </span>
-                                )}
-
-                                {/* Audio Player */}
-                                {row.ttsStatus === "success" && row.audioUrl && (
-                                  <div className="mt-1">
-                                    <MiniAudioPlayer url={row.audioUrl} />
-                                  </div>
+                                {(row.ttsStatus === "draft" || row.ttsStatus === "failed") && (
+                                  <button
+                                    onClick={() => regenerateAudio(row.id)}
+                                    className={`p-1.5 rounded-lg border transition-colors duration-200 cursor-pointer ${
+                                      row.ttsStatus === "failed" ? "bg-rose-50 border-rose-200 text-rose-600" : "bg-white border-stone-200 text-stone-800 hover:bg-stone-50"
+                                    }`}
+                                    title="Generate Audio"
+                                  >
+                                    <RotateCw size={11} />
+                                  </button>
                                 )}
                               </div>
                             </td>
+                            
+                            <td className="py-4 px-4 align-top text-center">
+                              {row.aiQaStatus === "passed" && <span className="inline-flex items-center text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded text-[9px] border border-emerald-100"><CheckCircle2 size={10} className="mr-1" />Pass</span>}
+                              {row.aiQaStatus === "failed" && <span className="inline-flex items-center text-rose-700 font-semibold bg-rose-50 px-2 py-0.5 rounded text-[9px] border border-rose-100"><XCircle size={10} className="mr-1" />Fail</span>}
+                              {(!row.aiQaStatus || row.aiQaStatus === "pending") && <span className="text-[9px] text-stone-600 font-mono italic">Pending</span>}
+                            </td>
 
-                            {/* Human QA Actions */}
-                            <td className="py-4 px-6">
-                              <div className="flex items-center space-x-1.5">
+                            <td className="py-4 px-4 align-top">
+                              <div className="flex items-center justify-center gap-1">
                                 <button
                                   onClick={() => updateQAStatus(row.id, "passed")}
-                                  className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold cursor-pointer transition-colors duration-200 flex items-center space-x-1 border ${
+                                  className={`p-1.5 rounded-lg transition-colors duration-200 cursor-pointer border ${
                                     row.qaStatus === "passed"
                                       ? "bg-[#C27A5C] border-[#C27A5C] text-white"
-                                      : "bg-white border-stone-200 text-stone-500 hover:text-stone-800 hover:bg-stone-50"
+                                      : "bg-white border-stone-200 text-stone-600 hover:text-stone-700 hover:bg-stone-50"
                                   }`}
+                                  title="Pass Human QA"
                                 >
-                                  <Check size={10} />
-                                  <span>Pass</span>
+                                  <Check size={11} />
                                 </button>
                                 <button
                                   onClick={() => updateQAStatus(row.id, "failed")}
-                                  className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold cursor-pointer transition-colors duration-200 flex items-center space-x-1 border ${
+                                  className={`p-1.5 rounded-lg transition-colors duration-200 cursor-pointer border ${
                                     row.qaStatus === "failed"
                                       ? "bg-stone-800 border-stone-800 text-white"
-                                      : "bg-white border-stone-200 text-stone-550 hover:text-stone-800 hover:bg-stone-50"
+                                      : "bg-white border-stone-200 text-stone-600 hover:text-stone-700 hover:bg-stone-50"
                                   }`}
+                                  title="Fail Human QA"
                                 >
-                                  <X size={10} />
-                                  <span>Fail</span>
+                                  <X size={11} />
                                 </button>
                               </div>
                             </td>
 
-                            {/* Regenerate Action */}
-                            <td className="py-4 px-6 text-center">
+                            <td className="py-4 px-4 align-top">
+                              <span className={`inline-flex rounded-full border px-2 py-1 text-[9px] font-semibold uppercase tracking-wide ${statusStyles[rowStatus]}`}>
+                                {rowStatus.replace("_", " ")}
+                              </span>
+                              {requiredErrors.length > 0 && (
+                                <p className="mt-1.5 text-[9px] leading-relaxed text-rose-600">
+                                  Missing: {requiredErrors.join(", ")}
+                                </p>
+                              )}
+                            </td>
+                            <td className="py-4 px-4 text-center align-top">
                               <button
-                                onClick={() => regenerateAudio(row.id)}
-                                disabled={row.ttsStatus === "generating"}
-                                className={`p-2 rounded-lg border transition-colors duration-200 cursor-pointer ${
-                                  isFailed
-                                    ? "bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100"
-                                    : "bg-white border-stone-200 text-stone-500 hover:bg-stone-50"
+                                type="button"
+                                role="switch"
+                                aria-checked={Boolean(row.isEnabled)}
+                                onClick={() => toggleRowEnabled(row)}
+                                className={`relative mt-0.5 inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                                  row.isEnabled ? "bg-emerald-600" : "bg-stone-300"
                                 }`}
-                                title="TTS Synthesis"
                               >
-                                <RotateCw size={11} className={row.ttsStatus === "generating" ? "animate-spin" : ""} />
+                                <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${row.isEnabled ? "translate-x-[18px]" : "translate-x-1"}`} />
                               </button>
                             </td>
-
+                            <td className="py-4 px-4 align-top">
+                              <div className="flex items-center justify-center gap-0.5">
+                                <button
+                                  onClick={() => moveRow(row.id, -1)}
+                                  disabled={searchQuery.trim().length > 0 || currentRows.findIndex(item => item.id === row.id) === 0}
+                                  title="Move up"
+                                  className="rounded-lg p-1.5 text-stone-800 hover:bg-stone-100 hover:text-stone-800 disabled:cursor-not-allowed disabled:opacity-25"
+                                >
+                                  <ArrowUp size={12} />
+                                </button>
+                                <button
+                                  onClick={() => moveRow(row.id, 1)}
+                                  disabled={searchQuery.trim().length > 0 || currentRows.findIndex(item => item.id === row.id) === currentRows.length - 1}
+                                  title="Move down"
+                                  className="rounded-lg p-1.5 text-stone-800 hover:bg-stone-100 hover:text-stone-800 disabled:cursor-not-allowed disabled:opacity-25"
+                                >
+                                  <ArrowDown size={12} />
+                                </button>
+                                <button 
+                                  onClick={() => deleteExcelRow(row.id)}
+                                  title="Delete record"
+                                  className="p-1.5 text-stone-800 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors duration-200 cursor-pointer"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
+                            </td>
                           </tr>
                         );
                       })
@@ -953,283 +1331,485 @@ export default function CurriculumDashboard() {
             </div>
           )}
 
-          {/* TAB 3: DRILL CONFIGURATION VIEW */}
+          {/* UC03: Drill Config */}
           {activeTab === "drills" && (
-            <div className="space-y-6">
-              
-              <div className="bg-white p-6 border border-stone-200/80 rounded-2xl">
-                <h3 className="text-sm font-bold text-stone-800 font-serif">Drill Configuration Editor</h3>
-                <p className="text-[11px] text-stone-500 mt-0.5">Construct interactive spelling, fill-in-the-blank, or syntax reordering exercises.</p>
+            <div className="bg-white border border-stone-200/80 rounded-2xl overflow-hidden shadow-none">
+              <div className="p-5 border-b border-stone-100 flex justify-between items-center bg-stone-50/50">
+                <div>
+                  <h4 className="text-xs font-bold text-stone-800 uppercase tracking-wide font-serif">Drill Configuration Table</h4>
+                  <p className="text-[10px] text-stone-800 mt-1">Configure exercises for each vocabulary/sentence. A row must be added as a Drill to configure its type and script.</p>
+                </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-6 font-sans">
-                
-                {/* Left side: Spreadsheet Content Cards */}
-                <div className="col-span-1 bg-white border border-stone-200/80 rounded-2xl p-5 space-y-4">
-                  <h4 className="text-xs font-bold text-stone-800 uppercase tracking-wide border-b border-stone-100 pb-2 font-serif">Spreadsheet Content Cards</h4>
-                  
-                  <div className="space-y-1.5 max-h-[380px] overflow-y-auto pr-1">
-                    {currentRows.filter(r => !r.code.includes("_A") && !r.code.includes("_G")).map(row => (
-                      <div key={row.id} className="flex justify-between items-center p-2 rounded-lg border border-stone-100 bg-stone-50/40 text-[11px] hover:bg-stone-50 hover:border-stone-200 transition-colors duration-200">
-                        <div className="min-w-0 pr-2">
-                          <div className="font-bold text-stone-800 truncate">{row.cn.split("|")[0].trim()}</div>
-                          <div className="text-[9px] text-stone-500 font-mono truncate">{row.code}</div>
-                        </div>
-                        <button 
-                          onClick={() => addDrillFromExcel(row)}
-                          className="p-1 rounded-lg bg-stone-50 border border-stone-200 text-stone-600 hover:bg-stone-800 hover:text-white transition-colors duration-200 cursor-pointer flex-shrink-0"
-                        >
-                          <PlusCircle size={12} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
+              <div className="max-h-[600px] overflow-y-auto overflow-x-auto">
+                <table className="w-full min-w-[1400px] text-left border-collapse text-xs table-fixed">
+                  <thead>
+                    <tr className="border-b border-stone-200 text-[10px] text-stone-800 uppercase font-semibold tracking-wider bg-stone-50/50 sticky top-0 z-10">
+                      <th className="py-3 px-4 w-32 font-serif">Source</th>
+                      <th className="py-3 px-4 w-24 text-center font-serif">Action</th>
+                      <th className="py-3 px-4 w-32 font-serif">Assignment</th>
+                      <th className="py-3 px-4 w-40 font-serif">Drill Type</th>
+                      <th className="py-3 px-4 w-48 font-serif">Target Script</th>
+                      <th className="py-3 px-4 w-40 font-serif">Meaning (EN)</th>
+                      <th className="py-3 px-4 w-40 font-serif">Meaning (VN)</th>
+                      <th className="py-3 px-4 w-40 font-serif">Meaning (KR)</th>
+                      <th className="py-3 px-4 w-40 font-serif">Meaning (ES)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {currentRows.map((row) => {
+                      const drill = currentDrills.find(d => d.sourceCode === row.source);
+                      const isAdded = !!drill;
+                      const isFillBlank = isAdded && drill.drillType === "fill_blank";
 
-                </div>
-
-                {/* Right side: Configure Drill Items */}
-                <div className="col-span-2 bg-white border border-stone-200/80 rounded-2xl p-5 space-y-4">
-                  <h4 className="text-xs font-bold text-stone-800 uppercase tracking-wide border-b border-stone-100 pb-2 font-serif">Active Drills Configurations</h4>
-
-                  <div className="space-y-4 max-h-[380px] overflow-y-auto pr-1">
-                    {currentDrills.length === 0 ? (
-                      <div className="py-12 text-center text-stone-500 italic text-xs">
-                        No active drills configured. Click the "+" button on the left panel to import a card.
-                      </div>
-                    ) : (
-                      currentDrills.map((drill) => {
-                        const isFillBlank = drill.drillType === "fill_blank";
-                        return (
-                          <div key={drill.id} className="p-5 rounded-2xl border border-stone-200 bg-stone-50/30 space-y-4 relative group">
-                            
-                            <button 
-                              onClick={() => deleteDrill(drill.id)}
-                              className="absolute top-4 right-4 p-1.5 text-stone-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors duration-200 cursor-pointer"
-                            >
-                              <Trash2 size={13} />
-                            </button>
-
-                            <div className="flex items-center space-x-3 text-xs">
-                              <span className="font-mono text-[9px] font-bold bg-white py-1 px-2 rounded-lg border border-stone-200 text-stone-550">
-                                Source: {drill.sourceCode}
+                      return (
+                        <React.Fragment key={row.id}>
+                          <tr className={`border-b border-stone-100 transition-colors duration-150 ${isAdded ? 'bg-white hover:bg-stone-50/50' : 'bg-stone-50/30 opacity-70 hover:opacity-100'}`}>
+                            {/* Source */}
+                            <td className="py-3 px-4">
+                              <span className="font-mono text-[10px] font-bold bg-stone-100 py-1 px-2 rounded-lg border border-stone-200 text-stone-900 truncate block text-center">
+                                {row.source || "-"}
                               </span>
-                              
-                              <div className="flex items-center space-x-1.5">
-                                <span className="text-[10px] font-semibold text-stone-500">Drill Type:</span>
+                            </td>
+
+                            {/* Action */}
+                            <td className="py-3 px-4 text-center">
+                              {isAdded ? (
+                                <button 
+                                  onClick={() => deleteDrill(drill.id)}
+                                  className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer inline-flex"
+                                  title="Remove Drill"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              ) : (
+                                <button 
+                                  onClick={() => addDrillFromExcel(row)}
+                                  className="p-1.5 text-[#C27A5C] hover:bg-[#C27A5C]/10 rounded-lg transition-colors cursor-pointer inline-flex font-bold"
+                                  title="Add to Drills"
+                                >
+                                  <Plus size={14} />
+                                </button>
+                              )}
+                            </td>
+
+                            {/* Assignment */}
+                            <td className="py-3 px-4">
+                              {isAdded ? (
+                                <select
+                                  value={drill.assignment || "drill"}
+                                  onChange={(e) => handleDrillEdit(drill.id, "assignment", e.target.value as DrillItem["assignment"])}
+                                  className="w-full bg-white border border-[#C27A5C]/30 rounded-lg py-1 px-2 text-[11px] text-stone-800 focus:outline-none focus:border-[#C27A5C] font-semibold text-[#C27A5C]"
+                                >
+                                  <option value="drill">Main Drill</option>
+                                  <option value="extra_drill">Extra Drill</option>
+                                </select>
+                              ) : (
+                                <span className="text-stone-600 text-[10px] italic">Unassigned</span>
+                              )}
+                            </td>
+
+                            {/* Drill Type */}
+                            <td className="py-3 px-4">
+                              {isAdded ? (
                                 <select
                                   value={drill.drillType}
-                                  onChange={(e) => handleDrillEdit(drill.id, "drillType", e.target.value as any)}
-                                  className="bg-white border border-stone-200 rounded-lg py-0.5 px-2 text-[10px] text-stone-800 focus:outline-none focus:border-stone-400 transition-colors duration-200"
+                                  onChange={(e) => handleDrillEdit(drill.id, "drillType", e.target.value as DrillItem["drillType"])}
+                                  className="w-full bg-white border border-stone-200 rounded-lg py-1 px-2 text-[11px] text-stone-800 focus:outline-none focus:border-stone-400"
                                 >
-                                  <option value="listen_repeat">Listen & Repeat (Speaking)</option>
+                                  <option value="listen_repeat">Listen & Repeat</option>
                                   <option value="fill_blank">Fill in the Blank</option>
                                   <option value="sentence_order">Sentence Ordering</option>
                                 </select>
-                              </div>
-                            </div>
+                              ) : (
+                                <span className="text-stone-500">-</span>
+                              )}
+                            </td>
 
-                            {/* Base preview */}
-                            <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <label className="block text-[9px] text-stone-500 font-bold uppercase mb-1">Target Script</label>
+                            {/* Target Script */}
+                            <td className="py-3 px-4">
+                              {isAdded ? (
                                 <input 
                                   type="text" 
                                   value={drill.scriptText} 
                                   onChange={(e) => handleDrillEdit(drill.id, "scriptText", e.target.value)}
-                                  className="bg-transparent border border-stone-200 rounded-lg px-2.5 py-1.5 text-xs w-full text-stone-800 font-bold focus:border-stone-400 focus:outline-none focus:ring-0 transition-colors duration-200"
+                                  className="w-full bg-transparent border border-stone-200 hover:border-[#C27A5C]/50 focus:border-[#C27A5C] rounded-lg px-2 py-1 text-xs text-stone-800 font-bold focus:outline-none transition-colors"
                                 />
-                              </div>
-                              <div>
-                                <label className="block text-[9px] text-stone-500 font-bold uppercase mb-1">Meaning</label>
+                              ) : (
+                                <span className="text-stone-800 font-bold">{row.source}</span>
+                              )}
+                            </td>
+
+                            {/* Meaning EN */}
+                            <td className="py-3 px-4">
+                              {isAdded ? (
                                 <input 
                                   type="text" 
-                                  value={drill.meaning} 
-                                  onChange={(e) => handleDrillEdit(drill.id, "meaning", e.target.value)}
-                                  className="bg-transparent border border-stone-200 rounded-lg px-2.5 py-1.5 text-xs w-full text-stone-600 focus:border-stone-400 focus:outline-none focus:ring-0 transition-colors duration-200"
+                                  value={drill.meaningEn} 
+                                  onChange={(e) => handleDrillEdit(drill.id, "meaningEn", e.target.value)}
+                                  className="w-full bg-transparent border border-stone-200 hover:border-stone-300 focus:border-stone-400 rounded-lg px-2 py-1 text-xs text-stone-900 focus:outline-none transition-colors"
                                 />
-                              </div>
-                            </div>
+                              ) : (
+                                <span className="text-stone-600">{row.en || "-"}</span>
+                              )}
+                            </td>
 
-                            {/* Fill Blank Logic */}
-                            {isFillBlank && (
-                              <div className="bg-white border border-stone-200/80 rounded-xl p-4 space-y-3 mt-2 shadow-none">
-                                <div className="text-[10px] text-stone-500 font-semibold flex items-center space-x-1 font-serif">
-                                  <Info size={11} className="text-stone-800" />
-                                  <span>Fill-in-the-blank Exercise Logic Configurations</span>
-                                </div>
-                                <div className="grid grid-cols-3 gap-3">
-                                  <div>
-                                    <label className="block text-[8px] text-stone-500 uppercase font-semibold mb-0.5">Prompt Before</label>
-                                    <input 
-                                      type="text" 
-                                      value={drill.promptBefore || ""} 
-                                      onChange={(e) => handleDrillEdit(drill.id, "promptBefore", e.target.value)}
-                                      placeholder="e.g. 我"
-                                      className="bg-transparent border border-stone-200 rounded-lg px-2.5 py-1.5 text-xs w-full text-stone-800 focus:border-stone-400 focus:outline-none focus:ring-0 transition-colors duration-200"
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="block text-[8px] text-stone-500 uppercase font-semibold mb-0.5">Blank Answer</label>
-                                    <input 
-                                      type="text" 
-                                      value={drill.answer || ""} 
-                                      onChange={(e) => handleDrillEdit(drill.id, "answer", e.target.value)}
-                                      placeholder="e.g. 是"
-                                      className="bg-transparent border border-stone-200 rounded-lg px-2.5 py-1.5 text-xs w-full text-[#C27A5C] font-bold focus:border-stone-400 focus:outline-none focus:ring-0 transition-colors duration-200"
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="block text-[8px] text-stone-500 uppercase font-semibold mb-0.5">Prompt After</label>
-                                    <input 
-                                      type="text" 
-                                      value={drill.promptAfter || ""} 
-                                      onChange={(e) => handleDrillEdit(drill.id, "promptAfter", e.target.value)}
-                                      placeholder="e.g. 学生"
-                                      className="bg-transparent border border-stone-200 rounded-lg px-2.5 py-1.5 text-xs w-full text-stone-800 focus:border-stone-400 focus:outline-none focus:ring-0 transition-colors duration-200"
-                                    />
-                                  </div>
-                                </div>
-                              </div>
-                            )}
+                            {/* Meaning VN */}
+                            <td className="py-3 px-4">
+                              {isAdded ? (
+                                <input 
+                                  type="text" 
+                                  value={drill.meaningVn} 
+                                  onChange={(e) => handleDrillEdit(drill.id, "meaningVn", e.target.value)}
+                                  className="w-full bg-transparent border border-stone-200 hover:border-stone-300 focus:border-stone-400 rounded-lg px-2 py-1 text-xs text-stone-900 focus:outline-none transition-colors"
+                                />
+                              ) : (
+                                <span className="text-stone-600">{row.vn || "-"}</span>
+                              )}
+                            </td>
 
-                          </div>
-                        );
-                      })
+                            {/* Meaning KR */}
+                            <td className="py-3 px-4">
+                              {isAdded ? (
+                                <input 
+                                  type="text" 
+                                  value={drill.meaningKr} 
+                                  onChange={(e) => handleDrillEdit(drill.id, "meaningKr", e.target.value)}
+                                  className="w-full bg-transparent border border-stone-200 hover:border-stone-300 focus:border-stone-400 rounded-lg px-2 py-1 text-xs text-stone-900 focus:outline-none transition-colors"
+                                />
+                              ) : (
+                                <span className="text-stone-600">{row.kr || "-"}</span>
+                              )}
+                            </td>
+
+                            {/* Meaning ES */}
+                            <td className="py-3 px-4">
+                              {isAdded ? (
+                                <input 
+                                  type="text" 
+                                  value={drill.meaningEs} 
+                                  onChange={(e) => handleDrillEdit(drill.id, "meaningEs", e.target.value)}
+                                  className="w-full bg-transparent border border-stone-200 hover:border-stone-300 focus:border-stone-400 rounded-lg px-2 py-1 text-xs text-stone-900 focus:outline-none transition-colors"
+                                />
+                              ) : (
+                                <span className="text-stone-600">{row.es || "-"}</span>
+                              )}
+                            </td>
+                          </tr>
+
+                          {/* Fill Blank Logic Row */}
+                          {isFillBlank && (
+                            <tr className="border-b border-stone-100 bg-stone-50/80">
+                              <td colSpan={9} className="py-4 px-4 pl-16">
+                                <div className="bg-white border border-stone-200/80 rounded-xl p-4 space-y-3 shadow-sm max-w-3xl">
+                                  <div className="text-[10px] text-stone-800 font-semibold flex items-center space-x-1 font-serif">
+                                    <Info size={11} className="text-stone-800" />
+                                    <span>Fill-in-the-blank Token Selection</span>
+                                  </div>
+                                  <div className="flex flex-wrap gap-1 p-3 bg-stone-50/50 rounded-lg border border-stone-200/60">
+                                    {drill.scriptText.split('').map((char, idx) => {
+                                      const currentBefore = drill.promptBefore || "";
+                                      const currentAns = drill.answer || "";
+                                      const isMatch = drill.scriptText.startsWith(currentBefore) && drill.scriptText.slice(currentBefore.length).startsWith(currentAns) && currentAns.length > 0;
+                                      const isSelected = isMatch && idx >= currentBefore.length && idx < currentBefore.length + currentAns.length;
+                                      
+                                      return (
+                                        <button
+                                          key={idx}
+                                          onClick={() => {
+                                            const before = drill.scriptText.slice(0, idx);
+                                            const ans = drill.scriptText[idx];
+                                            const after = drill.scriptText.slice(idx + 1);
+                                            handleDrillEdit(drill.id, "promptBefore", before);
+                                            handleDrillEdit(drill.id, "answer", ans);
+                                            handleDrillEdit(drill.id, "promptAfter", after);
+                                          }}
+                                          className={`px-2 py-1 rounded-md text-sm transition-colors duration-200 cursor-pointer ${
+                                            isSelected 
+                                              ? "bg-[#C27A5C] text-white font-bold shadow-sm" 
+                                              : "bg-white text-stone-700 border border-stone-200 hover:border-[#C27A5C] hover:text-[#C27A5C]"
+                                          }`}
+                                        >
+                                          {char}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                  <div className="text-[10px] text-stone-800 italic">Click a character above to mark it as the missing blank.</div>
+                                  <div className="grid grid-cols-3 gap-3 pt-2 border-t border-stone-100">
+                                    <div>
+                                      <label className="block text-[8px] text-stone-800 uppercase font-semibold mb-0.5">Prompt Before</label>
+                                      <div className="bg-transparent border border-stone-200 rounded-lg px-2.5 py-1.5 text-xs w-full text-stone-800 bg-stone-50">{drill.promptBefore || "-"}</div>
+                                    </div>
+                                    <div>
+                                      <label className="block text-[8px] text-[#C27A5C] uppercase font-semibold mb-0.5">Blank Answer</label>
+                                      <div className="bg-transparent border border-[#C27A5C]/30 rounded-lg px-2.5 py-1.5 text-xs w-full text-[#C27A5C] font-bold bg-[#C27A5C]/5">{drill.answer || "-"}</div>
+                                    </div>
+                                    <div>
+                                      <label className="block text-[8px] text-stone-800 uppercase font-semibold mb-0.5">Prompt After</label>
+                                      <div className="bg-transparent border border-stone-200 rounded-lg px-2.5 py-1.5 text-xs w-full text-stone-800 bg-stone-50">{drill.promptAfter || "-"}</div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                    {currentRows.length === 0 && (
+                      <tr>
+                        <td colSpan={9} className="py-12 text-center text-stone-800 italic text-xs">
+                          No spreadsheet content available. Please import a spreadsheet in the Curriculum Tab first.
+                        </td>
+                      </tr>
                     )}
-                  </div>
-
-                </div>
-
+                  </tbody>
+                </table>
               </div>
-
             </div>
           )}
 
           {/* TAB 4: ROLEPLAY SETUP VIEW */}
           {activeTab === "roleplay" && (
-            <div className="space-y-6">
-              
-              <div className="bg-white p-6 border border-stone-200/80 rounded-2xl">
-                <h3 className="text-sm font-bold text-stone-800 font-serif">Roleplay Scenario Editor</h3>
-                <p className="text-[11px] text-stone-500 mt-0.5">Define conversation settings and AI goals for mock grading check-lists.</p>
+            <div className="bg-white border border-stone-200/80 rounded-2xl overflow-hidden shadow-none flex flex-col">
+              <div className="p-5 border-b border-stone-100 flex justify-between items-center bg-stone-50/50">
+                <div>
+                  <h4 className="text-xs font-bold text-stone-800 uppercase tracking-wide font-serif">Roleplay Editor</h4>
+                  <p className="text-[10px] text-stone-800 mt-1">Configure goals and success criteria to align with the Mobile App.</p>
+                </div>
+                <button
+                  onClick={addRoleplayGoal}
+                  className="bg-stone-800 hover:bg-stone-700 text-white py-1.5 px-3 rounded-lg text-xs font-bold flex items-center space-x-1 cursor-pointer transition-colors duration-200 active:scale-95 border border-stone-800"
+                >
+                  <Plus size={12} />
+                  <span>Add Goal</span>
+                </button>
               </div>
 
-              <div className="grid grid-cols-3 gap-6 font-sans">
-                
-                {/* Context setup */}
-                <div className="col-span-1 bg-white border border-stone-200/80 rounded-2xl p-5 space-y-4">
-                  <h4 className="text-xs font-bold text-stone-800 uppercase tracking-wide border-b border-stone-100 pb-2 font-serif">Context Prompt & Info</h4>
-                  
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-[9px] text-stone-500 font-bold uppercase mb-1">Prompt Setup Context</label>
-                      <textarea
-                        value={currentRoleplay.setup}
-                        onChange={(e) => handleRoleplaySetupChange(e.target.value)}
-                        placeholder="Define prompt scenario instructions for the AI tutor..."
-                        className={`w-full bg-transparent border rounded-lg p-2 text-xs text-stone-800 focus:outline-none focus:border-stone-450 focus:ring-0 transition-colors duration-200 ${
-                          currentRoleplay.setup.length > 1000 ? "border-rose-300" : "border-stone-200"
-                        }`}
-                        rows={6}
-                      />
-                      
-                      <div className="flex justify-between items-center mt-1 text-[9px]">
-                        <span className={currentRoleplay.setup.length > 1000 ? "text-rose-600 font-bold" : "text-stone-500"}>
-                          {currentRoleplay.setup.length} / 1000 characters
-                        </span>
-                        {currentRoleplay.setup.length > 1000 && (
-                          <span className="text-rose-600 flex items-center space-x-0.5 font-bold">
-                            <AlertTriangle size={8} />
-                            <span>Warning: Token limit exceeded</span>
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-[9px] text-stone-500 font-bold uppercase mb-1">Tutor Scenario Notes</label>
-                      <textarea
-                        value={currentRoleplay.notes}
-                        onChange={(e) => handleRoleplayNotesChange(e.target.value)}
-                        placeholder="Internal guidelines or scenario tips..."
-                        className="w-full bg-transparent border border-stone-200 rounded-lg p-2 text-xs text-stone-500 focus:outline-none focus:border-stone-400 focus:ring-0 transition-colors duration-200"
-                        rows={4}
-                      />
-                    </div>
-                  </div>
-
-                </div>
-
-                {/* Goals success criteria */}
-                <div className="col-span-2 bg-white border border-stone-200/80 rounded-2xl p-5 space-y-4 flex flex-col">
-                  <div className="border-b border-stone-100 pb-2 flex justify-between items-center">
-                    <h4 className="text-xs font-bold text-stone-800 uppercase tracking-wide font-serif">Conversational Goals (Success Criteria)</h4>
-                    <button
-                      onClick={addRoleplayGoal}
-                      className="bg-stone-800 hover:bg-stone-700 text-white py-1.5 px-3 rounded-lg text-xs font-bold flex items-center space-x-1 cursor-pointer transition-colors duration-200 active:scale-95 border border-stone-800"
-                    >
-                      <Plus size={12} />
-                      <span>Add Goal</span>
-                    </button>
-                  </div>
-
-                  <div className="space-y-3 flex-1 overflow-y-auto max-h-[380px] pr-1">
+              <div className="max-h-[600px] overflow-y-auto overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs table-fixed">
+                  <thead>
+                    <tr className="border-b border-stone-200 text-[10px] text-stone-800 uppercase font-semibold tracking-wider bg-stone-50/50 sticky top-0 z-10">
+                      <th className="py-3 px-4 w-24 text-center font-serif">Order</th>
+                      <th className="py-3 px-4 w-96 font-serif">Goal (English)</th>
+                      <th className="py-3 px-4 w-96 font-serif">Native Description</th>
+                      <th className="py-3 px-4 w-24 text-center font-serif">Enabled</th>
+                      <th className="py-3 px-4 w-24 text-center font-serif">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
                     {currentRoleplay.goals.length === 0 ? (
-                      <div className="py-12 text-center text-stone-500 italic text-xs">
-                        No goals added. Add grading criteria so the AI can evaluate the student conversation.
-                      </div>
+                      <tr>
+                        <td colSpan={5} className="py-12 text-center text-stone-800 italic text-xs">
+                          No goals added. Add grading criteria so the AI can evaluate the student conversation.
+                        </td>
+                      </tr>
                     ) : (
-                      currentRoleplay.goals.map((goal, idx) => (
-                        <div key={goal.id} className="p-4 rounded-xl bg-stone-50/40 border border-stone-200/80 relative flex items-start space-x-4">
-                          
-                          <button
-                            onClick={() => removeRoleplayGoal(goal.id)}
-                            className="absolute top-3 right-3 p-1.5 text-stone-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors duration-200 cursor-pointer"
-                          >
-                            <Trash2 size={13} />
-                          </button>
+                      [...currentRoleplay.goals]
+                        .sort((a, b) => a.orderIndex - b.orderIndex)
+                        .map((goal, idx, arr) => (
+                          <tr key={goal.id} className="border-b border-stone-100 hover:bg-stone-50/50 transition-colors duration-150">
+                            {/* Order */}
+                            <td className="py-3 px-4 text-center">
+                              <div className="flex flex-col items-center justify-center space-y-1">
+                                <button
+                                  onClick={() => reorderRoleplayGoal(goal.id, "up")}
+                                  disabled={idx === 0}
+                                  className="text-stone-400 hover:text-stone-800 disabled:opacity-30 disabled:cursor-not-allowed"
+                                >
+                                  <ArrowUp size={14} />
+                                </button>
+                                <span className="font-mono text-[10px] font-bold text-stone-600">{goal.orderIndex}</span>
+                                <button
+                                  onClick={() => reorderRoleplayGoal(goal.id, "down")}
+                                  disabled={idx === arr.length - 1}
+                                  className="text-stone-400 hover:text-stone-800 disabled:opacity-30 disabled:cursor-not-allowed"
+                                >
+                                  <ArrowDown size={14} />
+                                </button>
+                              </div>
+                            </td>
 
-                          <div className="font-mono text-xs text-stone-500 font-bold bg-white h-6 w-6 rounded-full flex items-center justify-center border border-stone-200">
-                            {idx + 1}
-                          </div>
-
-                          <div className="flex-1 grid grid-cols-2 gap-4 pr-6">
-                            <div>
-                              <label className="block text-[8px] text-stone-500 uppercase font-semibold mb-1">Success Criteria (English)</label>
+                            {/* Goal (English) */}
+                            <td className="py-3 px-4">
                               <input
                                 type="text"
                                 value={goal.successCriteria}
                                 onChange={(e) => editRoleplayGoal(goal.id, "successCriteria", e.target.value)}
-                                className="w-full bg-transparent border border-stone-200 rounded-lg px-2.5 py-1.5 text-xs text-stone-800 focus:border-stone-400 focus:outline-none focus:ring-0 transition-colors duration-200"
+                                placeholder="e.g. Speak fluently..."
+                                className="w-full bg-transparent border border-stone-200 hover:border-stone-400 focus:border-[#C27A5C] rounded-lg px-2 py-1.5 text-xs text-stone-900 focus:outline-none transition-colors"
                               />
-                            </div>
-                            
-                            <div>
-                              <label className="block text-[8px] text-stone-500 uppercase font-semibold mb-1">Native Description (Overlay)</label>
+                            </td>
+
+                            {/* Native Description */}
+                            <td className="py-3 px-4">
                               <input
                                 type="text"
                                 value={goal.descriptionNative}
                                 onChange={(e) => editRoleplayGoal(goal.id, "descriptionNative", e.target.value)}
-                                className="w-full bg-transparent border border-stone-200 rounded-lg px-2.5 py-1.5 text-xs text-stone-500 focus:border-stone-400 focus:outline-none focus:ring-0 transition-colors duration-200"
+                                placeholder="e.g. Nói lưu loát..."
+                                className="w-full bg-transparent border border-stone-200 hover:border-stone-400 focus:border-[#C27A5C] rounded-lg px-2 py-1.5 text-xs text-stone-900 focus:outline-none transition-colors"
                               />
-                            </div>
-                          </div>
+                            </td>
 
-                        </div>
-                      ))
+                            {/* Enabled */}
+                            <td className="py-3 px-4 text-center">
+                              <button
+                                onClick={() => editRoleplayGoal(goal.id, "isEnabled", !goal.isEnabled)}
+                                className={`w-8 h-4 rounded-full relative transition-colors duration-200 focus:outline-none ${
+                                  goal.isEnabled ? "bg-emerald-500" : "bg-stone-300"
+                                }`}
+                              >
+                                <div
+                                  className={`absolute top-0.5 left-0.5 bg-white w-3 h-3 rounded-full transition-transform duration-200 ${
+                                    goal.isEnabled ? "translate-x-4" : "translate-x-0"
+                                  }`}
+                                />
+                              </button>
+                            </td>
+
+                            {/* Actions */}
+                            <td className="py-3 px-4 text-center">
+                              <button
+                                onClick={() => removeRoleplayGoal(goal.id)}
+                                className="p-1.5 text-stone-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer inline-flex"
+                                title="Remove Goal"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))
                     )}
-                  </div>
-
-                </div>
-
+                  </tbody>
+                </table>
               </div>
 
+              {/* Status Footer */}
+              <div className="p-4 flex justify-between items-center bg-stone-50/50">
+                <span className="text-[11px] font-medium text-stone-600">
+                  Roleplay configured with <strong className="text-stone-900">{currentRoleplay.goals.filter(g => g.isEnabled).length}</strong> active goals.
+                </span>
+                {currentRoleplay.goals.filter(g => g.isEnabled).length === 0 && currentRoleplay.goals.length > 0 && (
+                  <span className="text-[10px] text-rose-600 font-semibold flex items-center space-x-1">
+                    <AlertTriangle size={12} />
+                    <span>Warning: You must have at least one enabled goal.</span>
+                  </span>
+                )}
+              </div>
             </div>
           )}
 
         </section>
 
       </main>
+
+      {toast && (
+        <div className={`fixed right-6 top-6 z-50 flex max-w-md items-start gap-3 rounded-xl border bg-white px-4 py-3 text-xs shadow-lg ${
+          toast.type === "success"
+            ? "border-emerald-200 text-emerald-800"
+            : toast.type === "warning"
+              ? "border-amber-200 text-amber-800"
+              : "border-rose-200 text-rose-800"
+        }`}>
+          {toast.type === "success" ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+          <span className="leading-relaxed">{toast.message}</span>
+          <button onClick={() => setToast(null)} className="ml-2 text-stone-600 hover:text-stone-700" aria-label="Dismiss notification">
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
+      {showImportPreview && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-stone-950/35 p-6 backdrop-blur-sm">
+          <div className="flex max-h-[88vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-2xl">
+            <div className="flex items-start justify-between border-b border-stone-100 px-6 py-5">
+              <div>
+                <div className="flex items-center gap-2">
+                  <FileSpreadsheet size={16} className="text-stone-900" />
+                  <h3 className="font-serif text-base font-bold text-stone-800">Import Curriculum Preview</h3>
+                </div>
+                <p className="mt-1 text-[11px] text-stone-800">
+                  {importFileName} will append valid records to existing lesson <span className="font-mono font-semibold">{activeLessonCode}</span>.
+                </p>
+              </div>
+              <button onClick={() => setShowImportPreview(false)} className="rounded-lg p-2 text-stone-600 hover:bg-stone-100 hover:text-stone-700">
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3 border-b border-stone-100 bg-stone-50/70 px-6 py-4">
+              <div className="rounded-xl border border-stone-200 bg-white p-3">
+                <p className="text-[9px] font-bold uppercase tracking-wide text-stone-800">Rows detected</p>
+                <p className="mt-1 text-lg font-bold text-stone-800">{importPreview.length}</p>
+              </div>
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3">
+                <p className="text-[9px] font-bold uppercase tracking-wide text-emerald-700">Valid</p>
+                <p className="mt-1 text-lg font-bold text-emerald-800">{importPreview.filter(row => row.status === "valid").length}</p>
+              </div>
+              <div className="rounded-xl border border-rose-200 bg-rose-50/60 p-3">
+                <p className="text-[9px] font-bold uppercase tracking-wide text-rose-700">Errors / Duplicates</p>
+                <p className="mt-1 text-lg font-bold text-rose-800">{importPreview.filter(row => row.status !== "valid").length}</p>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-auto">
+              <table className="w-full min-w-[900px] border-collapse text-left text-xs">
+                <thead className="sticky top-0 bg-white shadow-[0_1px_0_#e7e5e4]">
+                  <tr className="text-[9px] font-bold uppercase tracking-wide text-stone-800">
+                    <th className="px-5 py-3">Excel Row</th>
+                    <th className="px-5 py-3">Code</th>
+                    <th className="px-5 py-3">Type</th>
+                    <th className="px-5 py-3">Source</th>
+                    <th className="px-5 py-3">Meaning (EN)</th>
+                    <th className="px-5 py-3">Validation</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-100">
+                  {importPreview.map(row => (
+                    <tr key={`${row.rowNumber}-${row.code}`} className={row.status === "valid" ? "" : "bg-rose-50/30"}>
+                      <td className="px-5 py-3 font-mono text-stone-800">{row.rowNumber}</td>
+                      <td className="px-5 py-3 font-mono font-semibold text-stone-800">{row.code || "Missing"}</td>
+                      <td className="px-5 py-3 capitalize text-stone-900">{row.type.replace("_", " ")}</td>
+                      <td className="max-w-xs truncate px-5 py-3 text-stone-900">{row.sourceText || "-"}</td>
+                      <td className="max-w-xs truncate px-5 py-3 text-stone-900">{row.meaningEn || "-"}</td>
+                      <td className="px-5 py-3">
+                        <span className={`inline-flex rounded-full border px-2 py-1 text-[9px] font-bold uppercase ${
+                          row.status === "valid"
+                            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                            : "border-rose-200 bg-rose-50 text-rose-700"
+                        }`}>
+                          {row.status}
+                        </span>
+                        {row.errors.length > 0 && <p className="mt-1 text-[9px] text-rose-600">{row.errors.join(", ")}</p>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex items-center justify-between border-t border-stone-100 px-6 py-4">
+              <p className="text-[10px] text-stone-800">
+                Existing and duplicate codes are skipped. Import does not overwrite published data.
+              </p>
+              <div className="flex gap-2">
+                <button onClick={() => setShowImportPreview(false)} className="rounded-lg border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50">
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmImport}
+                  disabled={!importPreview.some(row => row.status === "valid")}
+                  className="rounded-lg bg-stone-800 px-4 py-2 text-xs font-semibold text-white hover:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Confirm {importPreview.filter(row => row.status === "valid").length} Valid Rows
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

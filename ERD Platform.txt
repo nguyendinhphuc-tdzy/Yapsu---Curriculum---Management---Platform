@@ -1,0 +1,341 @@
+erDiagram
+    LANGUAGE {
+        string id PK
+        string code UK
+        string name
+        string script
+        string speechLocale
+        boolean isAvailable
+    }
+
+    LESSON {
+        string id PK
+        string languageCode FK
+        string lessonCode UK
+        int level
+        int topicNumber
+        int lessonNumber
+        int orderIndex
+        string title
+        string shortDescription
+        string goal
+        string status
+    }
+
+    VOCAB_ITEM {
+        string id PK
+        string lessonCode FK
+        string code UK
+        int orderIndex
+        string scriptText
+        string readingText
+        string romanization
+        string meaning
+        boolean needsReview
+    }
+
+    SENTENCE_ITEM {
+        string id PK
+        string lessonCode FK
+        string code UK
+        int orderIndex
+        string scriptText
+        string readingText
+        string romanization
+        string meaning
+        boolean needsReview
+    }
+
+    GRAMMAR_ITEM {
+        string id PK
+        string lessonCode FK
+        string code UK
+        int orderIndex
+        string text
+    }
+
+    TOPIC_ITEM {
+        string id PK
+        string lessonCode FK
+        int orderIndex
+        string title
+        string description
+    }
+
+    AUDIO {
+        string id PK
+        string sourceDataId FK
+        string sourceDataType
+        string sourceText
+        string audioFile
+        string audioSource
+        int sourceVersion
+        int audioVersion
+        string status
+    }
+
+    GUIDED_LESSON {
+        string id PK
+        string lessonCode FK
+        string lessonId FK
+        string title
+        string description
+        int version
+        int contentVersion
+        int estimatedDurationSeconds
+        int segmentCount
+    }
+
+    GUIDED_SEGMENT {
+        string id PK
+        string guidedLessonId FK
+        int orderIndex
+        string type
+        string section
+        boolean promptsUserSpeech
+        string expectedPhrase
+    }
+
+    GUIDED_SCRIPT {
+        string id PK
+        string segmentId FK
+        int orderIndex
+        string textEnglish
+        string sourceText
+        boolean promptsUserSpeech
+        string expectedPhrase
+    }
+
+    GUIDED_CARD {
+        string id PK
+        string segmentId FK
+        int orderIndex
+        string sourceDataId FK
+        string sourceDataType
+        string code
+        string style
+        string microVariant
+    }
+
+    DRILL_SET {
+        string id PK
+        string lessonCode FK
+        string title
+        string description
+        int orderIndex
+    }
+
+    DRILL_PART {
+        string id PK
+        string drillSetId FK
+        int orderIndex
+        string title
+        string partType
+        string description
+    }
+
+    DRILL_ITEM {
+        string id PK
+        string drillPartId FK
+        string lessonCode FK
+        int orderIndex
+        int step
+        int round
+        string drillType
+        string appKind
+        string cardType
+        string scriptText
+        string readingText
+        string romanization
+        string meaning
+        string expectedScriptText
+        string expectedReadingText
+        string answer
+        string answerOrNote
+        string sourceCodes
+    }
+
+    EXTRA_DRILL_SET {
+        string id PK
+        string lessonCode FK
+        string title
+        string description
+        int orderIndex
+    }
+
+    EXTRA_DRILL_PART {
+        string id PK
+        string extraDrillSetId FK
+        int orderIndex
+        string title
+        string partType
+        string description
+    }
+
+    EXTRA_DRILL_ITEM {
+        string id PK
+        string extraDrillPartId FK
+        string lessonCode FK
+        int orderIndex
+        int step
+        int round
+        string drillType
+        string appKind
+        string cardType
+        string scriptText
+        string readingText
+        string romanization
+        string meaning
+        string expectedScriptText
+        string expectedReadingText
+        string answer
+        string answerOrNote
+        string sourceCodes
+    }
+
+    FILL_BLANK_CONFIG {
+        string id PK
+        string drillItemId FK
+        string promptBefore
+        string promptAfter
+        string answer
+        string choices
+    }
+
+    EXTRA_FILL_BLANK_CONFIG {
+        string id PK
+        string extraDrillItemId FK
+        string promptBefore
+        string promptAfter
+        string answer
+        string choices
+    }
+
+    TTS_CONFIG {
+        string id PK
+        string drillItemId FK
+        string ttsProvider
+        string ttsLanguage
+        string ttsText
+    }
+
+    EXTRA_TTS_CONFIG {
+        string id PK
+        string extraDrillItemId FK
+        string ttsProvider
+        string ttsLanguage
+        string ttsText
+    }
+
+    ROLEPLAY {
+        string id PK
+        string lessonCode FK
+        int orderIndex
+        string lessonTitle
+        string title
+        string setup
+        string notes
+        string sourceCodes
+    }
+
+    ROLEPLAY_GOAL {
+        string id PK
+        string roleplayId FK
+        int orderIndex
+        string title
+        string descriptionEn
+        string descriptionNative
+        string successCriteria
+    }
+
+    LOCALIZED_LESSON_OVERLAY {
+        string id PK
+        string nativeLanguage
+        string learningLanguage
+        string lessonCode FK
+        string guidedLessonId FK
+        string title
+        string goal
+    }
+
+    LOCALIZED_CONTENT_OVERLAY {
+        string overlayId FK
+        string itemType
+        string itemCode
+        string meaning
+        string exampleMeaning
+        string text
+    }
+
+    LOCALIZED_GUIDED_SEGMENT_OVERLAY {
+        string overlayId FK
+        string segmentId FK
+        string tutorText
+        string captionBySourceText
+        string cardMeaning
+        string promptEnglish
+        string tipText
+    }
+
+    LOCALIZED_DRILL_OVERLAY {
+        string overlayId FK
+        string drillId FK
+        string scriptTextKey
+        string meaning
+        string promptEnglish
+        string tipText
+    }
+
+    LOCALIZED_INFO_CARD_OVERLAY {
+        string segmentOverlayId FK
+        string title
+        string takeaway
+        string pattern
+        string note
+        string breakdownMeanings
+        string exampleEnglish
+    }
+
+    LANGUAGE ||--o{ LESSON : "learning_language"
+    LANGUAGE ||--o{ LOCALIZED_LESSON_OVERLAY : "localization_language"
+
+    LESSON ||--o{ VOCAB_ITEM : "contains"
+    LESSON ||--o{ SENTENCE_ITEM : "contains"
+    LESSON ||--o{ GRAMMAR_ITEM : "contains"
+    LESSON ||--o{ TOPIC_ITEM : "contains"
+    LESSON ||--o| GUIDED_LESSON : "has"
+    LESSON ||--o| DRILL_SET : "has_drill"
+    LESSON ||--o| EXTRA_DRILL_SET : "has_extra_drill"
+    LESSON ||--o| ROLEPLAY : "has"
+    LESSON ||--o{ LOCALIZED_LESSON_OVERLAY : "localized_by"
+
+    VOCAB_ITEM ||--o{ AUDIO : "has_audio"
+    SENTENCE_ITEM ||--o{ AUDIO : "has_audio"
+
+    GUIDED_LESSON ||--o{ GUIDED_SEGMENT : "contains"
+    GUIDED_SEGMENT ||--o{ GUIDED_SCRIPT : "contains_script"
+    GUIDED_SEGMENT ||--o{ GUIDED_CARD : "contains_card"
+
+    GUIDED_SCRIPT ||--o{ AUDIO : "has_audio"
+
+    VOCAB_ITEM ||--o{ GUIDED_CARD : "referenced_by"
+    SENTENCE_ITEM ||--o{ GUIDED_CARD : "referenced_by"
+    GRAMMAR_ITEM ||--o{ GUIDED_CARD : "referenced_by"
+    TOPIC_ITEM ||--o{ GUIDED_CARD : "referenced_by"
+
+    DRILL_SET ||--o{ DRILL_PART : "contains_parts"
+    DRILL_PART ||--o{ DRILL_ITEM : "contains_items"
+    DRILL_ITEM ||--o| FILL_BLANK_CONFIG : "configured_by"
+    DRILL_ITEM ||--o| TTS_CONFIG : "uses"
+
+    EXTRA_DRILL_SET ||--o{ EXTRA_DRILL_PART : "contains_parts"
+    EXTRA_DRILL_PART ||--o{ EXTRA_DRILL_ITEM : "contains_items"
+    EXTRA_DRILL_ITEM ||--o| EXTRA_FILL_BLANK_CONFIG : "configured_by"
+    EXTRA_DRILL_ITEM ||--o| EXTRA_TTS_CONFIG : "uses"
+
+    ROLEPLAY ||--o{ ROLEPLAY_GOAL : "contains"
+
+    LOCALIZED_LESSON_OVERLAY ||--o{ LOCALIZED_CONTENT_OVERLAY : "contains"
+    LOCALIZED_LESSON_OVERLAY ||--o{ LOCALIZED_GUIDED_SEGMENT_OVERLAY : "contains"
+    LOCALIZED_LESSON_OVERLAY ||--o{ LOCALIZED_DRILL_OVERLAY : "contains"
+    LOCALIZED_GUIDED_SEGMENT_OVERLAY ||--o| LOCALIZED_INFO_CARD_OVERLAY : "contains"
