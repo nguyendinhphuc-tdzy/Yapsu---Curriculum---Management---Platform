@@ -1,5 +1,5 @@
-import AudioQADashboard from "@/components/AudioQADashboard";
+import CurriculumDashboard from "@/components/CurriculumDashboard";
 
 export default function Home() {
-  return <AudioQADashboard />;
+  return <CurriculumDashboard />;
 }
