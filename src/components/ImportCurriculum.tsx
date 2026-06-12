@@ -10,7 +10,8 @@ import {
   Plus, 
   Trash2,
   Info,
-  GripVertical,
+  Pencil,
+  Check,
   X
 } from "lucide-react";
 import Link from "next/link";
@@ -20,6 +21,9 @@ type ContentType = "overall" | "vocab" | "sentence" | "grammar" | "guided_script
 
 interface ParsedRow {
   id: string; // Internal generated ID
+  lessonCode: string;
+  lessonName: string;
+  level: string;
   oldCode: string; // From the excel sheet
   newCode: string; // Generated for the system
   type: ContentType;
@@ -39,8 +43,7 @@ export default function ImportCurriculum() {
   const [importedLessonsCount, setImportedLessonsCount] = useState(0);
   const [level, setLevel] = useState("Unknown");
   const [warningPopup, setWarningPopup] = useState<{ isOpen: boolean, message: string, onConfirm: () => void } | null>(null);
-  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -57,6 +60,9 @@ export default function ImportCurriculum() {
     const newRows: ParsedRow[] = [];
     let currentSection: ContentType = "overall";
     let extractedLessonCode = "NEW_LESSON";
+    let currentLessonCode = "";
+    let currentLessonName = "";
+    let currentLevel = "Unknown";
 
     for (let i = 0; i < jsonData.length; i++) {
       const row = jsonData[i];
@@ -64,38 +70,32 @@ export default function ImportCurriculum() {
 
       if (!col0) continue; // Skip empty rows
 
-      // Section detection
-      if (col0.toLowerCase() === "overall info") {
-        currentSection = "overall";
-        continue;
-      }
-      if (col0.toLowerCase() === "vocabulary") {
-        currentSection = "vocab";
-        continue;
-      }
-      if (col0.toLowerCase() === "sentences") {
-        currentSection = "sentence";
-        continue;
-      }
-      if (col0.toLowerCase() === "grammar") {
-        currentSection = "grammar";
-        continue;
-      }
-      if (col0.toLowerCase() === "guided script") {
-        currentSection = "guided_script";
+      // Is it a Lesson Name header? e.g. "L5-01 Sharing a Home"
+      if (col0.match(/^L\d+-\d+/) || (i < jsonData.length - 1 && String(jsonData[i+1][0]).trim().toLowerCase() === "lesson code")) {
+        currentLessonName = col0;
+        currentSection = "overall"; // Reset section for new lesson
         continue;
       }
 
-      // Extract lesson code from second row if it matches "Lesson code"
+      // Extract lesson code
       if (col0.toLowerCase() === "lesson code" && row[1]) {
         extractedLessonCode = String(row[1]).trim();
-        setLessonCode(extractedLessonCode);
+        currentLessonCode = extractedLessonCode;
+        if (!lessonCode) setLessonCode(extractedLessonCode);
         continue;
       }
+
+      // Section detection
+      if (col0.toLowerCase() === "overall info") { currentSection = "overall"; continue; }
+      if (col0.toLowerCase() === "vocabulary") { currentSection = "vocab"; continue; }
+      if (col0.toLowerCase() === "sentences") { currentSection = "sentence"; continue; }
+      if (col0.toLowerCase() === "grammar") { currentSection = "grammar"; continue; }
+      if (col0.toLowerCase() === "guided script") { currentSection = "guided_script"; continue; }
 
       // Detect Level
       if (col0.toLowerCase().includes("_hsk") && row[3]) {
-        setLevel(String(row[3]).trim());
+        currentLevel = String(row[3]).trim();
+        if (level === "Unknown") setLevel(currentLevel);
         continue;
       }
 
@@ -103,6 +103,14 @@ export default function ImportCurriculum() {
 
       // Parse data rows
       if (currentSection !== "overall") {
+        // Skip rogue headers without underscores
+        if (!col0.includes("_") && col0.length > 5) {
+          if (col0.match(/^L\d+-\d+/)) {
+            currentLessonName = col0;
+          }
+          continue;
+        }
+
         const oldCode = col0;
         const source = String(row[1] || "").trim();
         const reading = String(row[2] || "").trim();
@@ -118,6 +126,9 @@ export default function ImportCurriculum() {
 
         newRows.push({
           id: `imp-${Date.now()}-${i}`,
+          lessonCode: currentLessonCode,
+          lessonName: currentLessonName,
+          level: currentLevel,
           oldCode,
           newCode,
           type: currentSection,
@@ -186,25 +197,13 @@ export default function ImportCurriculum() {
     }));
   };
 
-  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
-    e.preventDefault();
-    setDragOverIndex(null);
-    if (draggedIndex === null || draggedIndex === dropIndex) return;
-
-    setWarningPopup({
-      isOpen: true,
-      message: "Changing the order of this row will alter its future generated System Code sequence (e.g. V1 becomes V2). This may invalidate existing Drill or Audio mappings that rely on the original sequence. Do you want to proceed?",
-      onConfirm: () => {
-        setParsedData(prev => {
-          const newData = [...prev];
-          const [removed] = newData.splice(draggedIndex, 1);
-          newData.splice(dropIndex, 0, removed);
-          return newData;
-        });
-        setWarningPopup(null);
-        setDraggedIndex(null);
+  const handleDataChange = (rowId: string, field: keyof ParsedRow, value: string) => {
+    setParsedData(prev => prev.map(row => {
+      if (row.id === rowId) {
+        return { ...row, [field]: value };
       }
-    });
+      return row;
+    }));
   };
 
   // Rule Analysis
@@ -391,6 +390,8 @@ export default function ImportCurriculum() {
                     <thead className="sticky top-0 bg-stone-50 z-10">
                       <tr className="border-b border-stone-200 text-[10px] text-stone-500 uppercase font-semibold tracking-wider">
                         <th className="py-3 px-4 w-16">No.</th>
+                        <th className="py-3 px-4 w-32">Level</th>
+                        <th className="py-3 px-4 w-48">Lesson</th>
                         <th className="py-3 px-4 w-24">Type</th>
                         <th className="py-3 px-4 w-32">Old Code</th>
                         <th className="py-3 px-4 w-32">New Code</th>
@@ -414,22 +415,31 @@ export default function ImportCurriculum() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-stone-100">
-                      {parsedData.map((row, idx) => (
+                      {parsedData.map((row, idx) => {
+                        const isEditing = editingRowId === row.id;
+                        return (
                         <tr 
                           key={row.id} 
-                          draggable
-                          onDragStart={() => setDraggedIndex(idx)}
-                          onDragOver={(e) => { e.preventDefault(); setDragOverIndex(idx); }}
-                          onDragLeave={() => setDragOverIndex(null)}
-                          onDrop={(e) => handleDrop(e, idx)}
-                          className={`hover:bg-stone-50/50 transition-colors ${dragOverIndex === idx ? "bg-stone-100 border-t-2 border-t-amber-400" : ""}`}
+                          className="hover:bg-stone-50/50 transition-colors"
                         >
                           <td className="py-3 px-4">
                             <div className="flex items-center space-x-2">
-                              <div className="cursor-grab active:cursor-grabbing text-stone-300 hover:text-stone-600 transition-colors">
-                                <GripVertical size={16} />
-                              </div>
+                              <button 
+                                onClick={() => setEditingRowId(isEditing ? null : row.id)}
+                                className={`p-1.5 rounded-lg transition-colors ${isEditing ? "bg-emerald-100 text-emerald-700" : "text-stone-400 hover:bg-stone-100 hover:text-stone-800"}`}
+                              >
+                                {isEditing ? <Check size={14} /> : <Pencil size={14} />}
+                              </button>
                               <span className="font-mono font-bold text-stone-400">{idx + 1}</span>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className="font-bold text-stone-600">{row.level}</span>
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex flex-col">
+                              <span className="font-mono text-[10px] text-stone-500">{row.lessonCode}</span>
+                              <span className="text-xs font-medium text-stone-800 truncate w-40" title={row.lessonName}>{row.lessonName}</span>
                             </div>
                           </td>
                           <td className="py-3 px-4">
@@ -438,10 +448,50 @@ export default function ImportCurriculum() {
                             </span>
                           </td>
                           <td className="py-3 px-4 font-mono text-stone-500">{row.oldCode}</td>
-                          <td className="py-3 px-4 font-mono font-bold text-stone-800 bg-sky-50/30">{row.newCode}</td>
-                          <td className="py-3 px-4 text-stone-800">{row.source}</td>
-                          <td className="py-3 px-4 text-stone-600">{row.reading}</td>
-                          <td className="py-3 px-4 text-stone-800">{row.en}</td>
+                          <td className="py-3 px-4">
+                            {isEditing ? (
+                              <input 
+                                value={row.newCode} 
+                                onChange={(e) => handleDataChange(row.id, "newCode", e.target.value)}
+                                className="w-full bg-white border border-stone-300 rounded px-2 py-1 text-xs focus:border-stone-500 focus:outline-none"
+                              />
+                            ) : (
+                              <span className="font-mono font-bold text-stone-800 bg-sky-50/30 px-1 rounded">{row.newCode || "-"}</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4">
+                            {isEditing ? (
+                              <input 
+                                value={row.source} 
+                                onChange={(e) => handleDataChange(row.id, "source", e.target.value)}
+                                className="w-full bg-white border border-stone-300 rounded px-2 py-1 text-xs focus:border-stone-500 focus:outline-none"
+                              />
+                            ) : (
+                              <span className="text-stone-800">{row.source}</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4">
+                            {isEditing ? (
+                              <input 
+                                value={row.reading} 
+                                onChange={(e) => handleDataChange(row.id, "reading", e.target.value)}
+                                className="w-full bg-white border border-stone-300 rounded px-2 py-1 text-xs focus:border-stone-500 focus:outline-none"
+                              />
+                            ) : (
+                              <span className="text-stone-600">{row.reading}</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4">
+                            {isEditing ? (
+                              <input 
+                                value={row.en} 
+                                onChange={(e) => handleDataChange(row.id, "en", e.target.value)}
+                                className="w-full bg-white border border-stone-300 rounded px-2 py-1 text-xs focus:border-stone-500 focus:outline-none"
+                              />
+                            ) : (
+                              <span className="text-stone-800">{row.en}</span>
+                            )}
+                          </td>
                           {nativeColumns.map(col => (
                             <td key={`${row.id}-${col}`} className="py-2 px-4">
                               <input
@@ -461,7 +511,7 @@ export default function ImportCurriculum() {
                             ))}
                           </td>
                         </tr>
-                      ))}
+                      )})}
                     </tbody>
                   </table>
                 </div>
