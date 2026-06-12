@@ -1037,7 +1037,7 @@ export default function CurriculumDashboard() {
       {/* SIDEBAR SELECTORS (Editorial Light Style) */}
       <aside className="w-80 bg-white border-r border-stone-200/80 flex flex-col justify-between">
         
-        <div>
+        <div className="overflow-y-auto flex-1">
           {/* Logo Brand */}
           <div className="p-6 border-b border-stone-100 flex items-center space-x-3">
             <div className="h-8 w-8 rounded-xl bg-stone-850 flex items-center justify-center">
