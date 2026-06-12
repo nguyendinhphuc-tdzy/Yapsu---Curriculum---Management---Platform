@@ -58,6 +58,8 @@ LANGUAGE
 
 System code được sinh tự động và readonly. Add Card tự scroll, highlight, focus field đầu tiên và hiển thị toast có row number. Sửa/xóa source đang được Audio, Drill hoặc Roleplay dùng sẽ cảnh báo dependency.
 
+*Note: Đối với tính năng Import Curriculum (ở trang riêng `/import`), bảng mapping giữa code cũ và code mới hiện tại chỉ duy trì cột "New Code" nhưng để trống dữ liệu. Sau này khi có các lesson mới được thêm vào, cột code mới này mới bắt đầu được sử dụng và cấp phát.*
+
 ### UC02 - Tutor Audio QA
 
 UC02 dùng chung bảng source với UC01:
