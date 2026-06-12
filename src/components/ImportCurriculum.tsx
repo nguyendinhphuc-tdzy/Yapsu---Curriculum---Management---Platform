@@ -42,8 +42,9 @@ export default function ImportCurriculum() {
   const [lessonCode, setLessonCode] = useState("");
   const [importedLessonsCount, setImportedLessonsCount] = useState(0);
   const [level, setLevel] = useState("Unknown");
-  const [warningPopup, setWarningPopup] = useState<{ isOpen: boolean, message: string, onConfirm: () => void, onCancel?: () => void } | null>(null);
+  const [warningPopup, setWarningPopup] = useState<{ isOpen: boolean, message: string, onConfirm: () => void, onCancel?: () => void, extraButton?: { label: string, onClick: () => void } } | null>(null);
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
+  const [selectedLessonFilter, setSelectedLessonFilter] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -237,11 +238,41 @@ export default function ImportCurriculum() {
     }
   };
 
+  const handleDeleteClick = (row: ParsedRow) => {
+    const relatedRowsCount = parsedData.filter(r => r.lessonCode === row.lessonCode && r.id !== row.id).length;
+    
+    if (relatedRowsCount > 0) {
+      setWarningPopup({
+        isOpen: true,
+        message: `You are about to delete a ${row.type.toUpperCase()} row. There are ${relatedRowsCount} other related items in lesson "${row.lessonName}" that might be affected. Do you want to delete all related items in this lesson as well?`,
+        onConfirm: () => {
+          // Delete all related items (same lessonCode)
+          setParsedData(prev => prev.filter(r => r.lessonCode !== row.lessonCode));
+          setWarningPopup(null);
+        },
+        extraButton: {
+          label: "Delete Only This Row",
+          onClick: () => {
+            setParsedData(prev => prev.filter(r => r.id !== row.id));
+            setWarningPopup(null);
+          }
+        }
+      });
+    } else {
+      setParsedData(prev => prev.filter(r => r.id !== row.id));
+    }
+  };
+
   // Rule Analysis
   const vocabCount = parsedData.filter(r => r.type === "vocab").length;
   const sentenceCount = parsedData.filter(r => r.type === "sentence").length;
   const minimumVocabRule = 5;
   const isValid = vocabCount >= minimumVocabRule;
+
+  const uniqueLessons = Array.from(new Set(parsedData.map(r => r.lessonName))).filter(Boolean);
+  const filteredData = selectedLessonFilter 
+    ? parsedData.filter(r => r.lessonName === selectedLessonFilter)
+    : parsedData;
 
   return (
     <>
@@ -256,6 +287,14 @@ export default function ImportCurriculum() {
                 <h3 className="text-sm font-bold text-stone-800 mb-2">Confirm Action</h3>
                 <p className="text-xs text-stone-600 leading-relaxed mb-6">{warningPopup.message}</p>
                 <div className="flex justify-end gap-3">
+                  {warningPopup.extraButton && (
+                    <button 
+                      onClick={warningPopup.extraButton.onClick}
+                      className="px-4 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 border border-rose-200 rounded-lg transition-colors"
+                    >
+                      {warningPopup.extraButton.label}
+                    </button>
+                  )}
                   <button 
                     onClick={() => {
                       if (warningPopup.onCancel) warningPopup.onCancel();
@@ -348,7 +387,17 @@ export default function ImportCurriculum() {
                     <p className="text-xs text-stone-500 mb-4">
                       Lesson Code: <span className="font-mono font-bold text-stone-800 bg-stone-100 px-1.5 py-0.5 rounded">{lessonCode}</span>
                       <span className="mx-3 text-stone-300">|</span>
-                      Importing: <span className="font-bold text-stone-800">{importedLessonsCount} Lessons</span>
+                      Importing:{" "}
+                      <select 
+                        value={selectedLessonFilter} 
+                        onChange={e => setSelectedLessonFilter(e.target.value)}
+                        className="font-bold text-stone-800 bg-transparent border-b border-stone-300 hover:border-stone-500 focus:outline-none focus:border-stone-800 cursor-pointer pb-0.5"
+                      >
+                        <option value="">{importedLessonsCount} Lessons (All)</option>
+                        {uniqueLessons.map(l => (
+                          <option key={l} value={l}>{l}</option>
+                        ))}
+                      </select>
                       <span className="mx-3 text-stone-300">|</span>
                       Level: <span className="font-bold text-stone-800">{level}</span>
                     </p>
@@ -365,14 +414,21 @@ export default function ImportCurriculum() {
                       <div className="flex items-start space-x-2 text-rose-600 bg-rose-50 p-2.5 rounded-xl border border-rose-100">
                         <AlertTriangle size={14} className="mt-0.5 shrink-0" />
                         <div className="text-xs">
-                          <span className="font-bold block mb-0.5">Minimum Vocabulary Rule Failed</span>
+                          <span className="font-bold block mb-0.5">Rules Failed</span>
                           A lesson must have at least {minimumVocabRule} vocabulary words. Currently has {vocabCount}.
                         </div>
                       </div>
                     ) : (
-                      <div className="flex items-center space-x-2 text-emerald-700 bg-emerald-50 p-2.5 rounded-xl border border-emerald-100">
-                        <CheckCircle2 size={14} />
-                        <span className="text-xs font-medium">All rules passed</span>
+                      <div className="flex flex-col space-y-2">
+                        <div className="flex items-center space-x-2 text-emerald-700 bg-emerald-50 p-2.5 rounded-xl border border-emerald-100">
+                          <CheckCircle2 size={14} />
+                          <span className="text-xs font-medium">All rules passed</span>
+                        </div>
+                        <ul className="text-[10px] text-stone-500 space-y-1 pl-1 list-inside list-disc">
+                          <li>Minimum {minimumVocabRule} vocabulary rule satisfied</li>
+                          <li>Valid lesson code mappings</li>
+                          <li>Required data columns detected</li>
+                        </ul>
                       </div>
                     )}
                   </div>
@@ -449,7 +505,7 @@ export default function ImportCurriculum() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-stone-100">
-                      {parsedData.map((row, idx) => {
+                      {filteredData.map((row, idx) => {
                         const isEditing = editingRowId === row.id;
                         return (
                         <tr 
@@ -457,14 +513,21 @@ export default function ImportCurriculum() {
                           className="hover:bg-stone-50/50 transition-colors"
                         >
                           <td className="py-3 px-4">
-                            <div className="flex items-center space-x-2">
+                            <div className="flex items-center space-x-1">
                               <button 
                                 onClick={() => handleEditClick(row, isEditing)}
                                 className={`p-1.5 rounded-lg transition-colors ${isEditing ? "bg-emerald-100 text-emerald-700" : "text-stone-400 hover:bg-stone-100 hover:text-stone-800"}`}
                               >
                                 {isEditing ? <Check size={14} /> : <Pencil size={14} />}
                               </button>
-                              <span className="font-mono font-bold text-stone-400">{idx + 1}</span>
+                              <button 
+                                onClick={() => handleDeleteClick(row)}
+                                className="p-1.5 rounded-lg transition-colors text-stone-400 hover:bg-rose-50 hover:text-rose-600"
+                                title="Delete row"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                              <span className="font-mono font-bold text-stone-400 ml-1">{idx + 1}</span>
                             </div>
                           </td>
                           <td className="py-3 px-4">
