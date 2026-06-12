@@ -23,6 +23,7 @@ interface ParsedRow {
   id: string; // Internal generated ID
   lessonCode: string;
   lessonName: string;
+  lessonGoal: string;
   level: string;
   oldCode: string; // From the excel sheet
   newCode: string; // Generated for the system
@@ -63,6 +64,7 @@ export default function ImportCurriculum() {
     let extractedLessonCode = "NEW_LESSON";
     let currentLessonCode = "";
     let currentLessonName = "";
+    let currentLessonGoal = "";
     let currentLevel = "Unknown";
 
     for (let i = 0; i < jsonData.length; i++) {
@@ -75,6 +77,13 @@ export default function ImportCurriculum() {
       if (col0.match(/^L\d+-\d+/) || (i < jsonData.length - 1 && String(jsonData[i+1][0]).trim().toLowerCase() === "lesson code")) {
         currentLessonName = col0;
         currentSection = "overall"; // Reset section for new lesson
+        currentLessonGoal = ""; // Reset goal
+        
+        const match = col0.match(/^L\d+/);
+        if (match) {
+          currentLevel = match[0];
+          if (level === "Unknown") setLevel(match[0]);
+        }
         continue;
       }
 
@@ -86,19 +95,18 @@ export default function ImportCurriculum() {
         continue;
       }
 
+      // Goal detection
+      if (col0.toLowerCase().includes("_goal")) {
+        currentLessonGoal = String(row[3] || "").trim();
+        continue;
+      }
+
       // Section detection
       if (col0.toLowerCase() === "overall info") { currentSection = "overall"; continue; }
       if (col0.toLowerCase() === "vocabulary") { currentSection = "vocab"; continue; }
       if (col0.toLowerCase() === "sentences") { currentSection = "sentence"; continue; }
       if (col0.toLowerCase() === "grammar") { currentSection = "grammar"; continue; }
       if (col0.toLowerCase() === "guided script") { currentSection = "guided_script"; continue; }
-
-      // Detect Level
-      if (col0.toLowerCase().includes("_hsk") && row[3]) {
-        currentLevel = String(row[3]).trim();
-        if (level === "Unknown") setLevel(currentLevel);
-        continue;
-      }
 
       if (col0.toLowerCase() === "code") continue; // Skip header row
 
@@ -129,6 +137,7 @@ export default function ImportCurriculum() {
           id: `imp-${Date.now()}-${i}`,
           lessonCode: currentLessonCode,
           lessonName: currentLessonName,
+          lessonGoal: currentLessonGoal,
           level: currentLevel,
           oldCode,
           newCode,
@@ -480,8 +489,10 @@ export default function ImportCurriculum() {
                     <thead className="sticky top-0 bg-stone-50 z-10">
                       <tr className="border-b border-stone-200 text-[10px] text-stone-500 uppercase font-semibold tracking-wider">
                         <th className="py-3 px-4 w-16">No.</th>
-                        <th className="py-3 px-4 w-32">Level</th>
-                        <th className="py-3 px-4 w-48">Lesson</th>
+                        <th className="py-3 px-4 w-24">Level</th>
+                        <th className="py-3 px-4 w-32">Lesson Code</th>
+                        <th className="py-3 px-4 w-48">Lesson Name</th>
+                        <th className="py-3 px-4 w-64">Lesson Goal</th>
                         <th className="py-3 px-4 w-24">Type</th>
                         <th className="py-3 px-4 w-32">Old Code</th>
                         <th className="py-3 px-4 w-32">New Code</th>
@@ -534,18 +545,30 @@ export default function ImportCurriculum() {
                             <span className="font-bold text-stone-600">{row.level}</span>
                           </td>
                           <td className="py-3 px-4">
-                            <div className="flex flex-col space-y-1">
-                              <span className="font-mono text-[10px] text-stone-500">{row.lessonCode}</span>
-                              {isEditing ? (
-                                <input
-                                  value={row.lessonName}
-                                  onChange={(e) => handleDataChange(row.id, "lessonName", e.target.value)}
-                                  className="w-40 bg-white border border-stone-300 rounded px-2 py-1 text-xs focus:border-stone-500 focus:outline-none"
-                                />
-                              ) : (
-                                <span className="text-xs font-medium text-stone-800 truncate w-40" title={row.lessonName}>{row.lessonName}</span>
-                              )}
-                            </div>
+                            <span className="font-mono text-[10px] text-stone-500">{row.lessonCode}</span>
+                          </td>
+                          <td className="py-3 px-4">
+                            {isEditing ? (
+                              <input
+                                value={row.lessonName}
+                                onChange={(e) => handleDataChange(row.id, "lessonName", e.target.value)}
+                                className="w-full bg-white border border-stone-300 rounded px-2 py-1 text-xs focus:border-stone-500 focus:outline-none"
+                              />
+                            ) : (
+                              <span className="text-xs font-medium text-stone-800 truncate block w-48" title={row.lessonName}>{row.lessonName}</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4">
+                            {isEditing ? (
+                              <textarea
+                                value={row.lessonGoal}
+                                onChange={(e) => handleDataChange(row.id, "lessonGoal", e.target.value)}
+                                className="w-full bg-white border border-stone-300 rounded px-2 py-1 text-xs focus:border-stone-500 focus:outline-none resize-y"
+                                rows={2}
+                              />
+                            ) : (
+                              <span className="text-[10px] text-stone-600 line-clamp-2 w-64" title={row.lessonGoal}>{row.lessonGoal}</span>
+                            )}
                           </td>
                           <td className="py-3 px-4">
                             <span className="inline-flex items-center px-2 py-0.5 rounded text-[9px] font-bold bg-stone-100 text-stone-600 uppercase">
