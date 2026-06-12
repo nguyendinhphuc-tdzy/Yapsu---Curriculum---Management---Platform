@@ -16,7 +16,6 @@ import {
   AlertTriangle,
   Play,
   Pause,
-  PlusCircle,
   Globe,
   Sliders,
   Info,
@@ -28,7 +27,9 @@ import {
   ChevronRight,
   GripVertical,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  Upload,
+  Sparkles
 } from "lucide-react";
 
 // Types
@@ -71,10 +72,14 @@ export interface ExcelRow {
   es: string;
   status?: RowStatus;
   isEnabled?: boolean;
-  ttsStatus: "draft" | "generating" | "success" | "failed";
+  ttsStatus: "draft" | "generating" | "success" | "failed" | "outdated";
   audioUrl?: string;
+  audioSource?: "uploaded" | "generated";
+  scriptVersion?: number;
+  audioVersion?: number;
   qaStatus: "pending" | "passed" | "failed"; // Human QA
   aiQaStatus?: "pending" | "passed" | "failed"; // AI QA
+  humanQaReason?: string;
   ttsMessage?: string;
 }
 
@@ -111,11 +116,14 @@ export interface DrillItem {
   answer?: string;
   sourceCode: string; // references Vocab/Sentence code
   assignment?: "not_added" | "drill" | "extra_drill";
+  blankStart?: number;
+  blankEnd?: number;
 }
 
 export interface RoleplayGoal {
   id: string;
   orderIndex: number;
+  title?: string;
   successCriteria: string;
   descriptionEn: string;
   descriptionNative: string;
@@ -124,8 +132,10 @@ export interface RoleplayGoal {
 
 export interface Roleplay {
   id: string;
+  lessonTitle?: string;
   title: string;
   setup: string;
+  sourceCodes?: string;
   goals: RoleplayGoal[];
 }
 
@@ -134,6 +144,12 @@ const mockLanguages: Language[] = [
   { id: "lang-zh", code: "zh", name: "Chinese", script: "Hans", speechLocale: "cmn-CN", isAvailable: true, flag: "CN" },
   { id: "lang-ja", code: "ja", name: "Japanese", script: "Jpan", speechLocale: "ja-JP", isAvailable: true, flag: "JP" }
 ];
+
+const nativeLocales = [
+  { code: "vn", label: "Vietnamese" },
+  { code: "kr", label: "Korean" },
+  { code: "es", label: "Spanish" }
+] as const;
 
 const mockLessons: Record<string, Lesson[]> = {
   zh: [
@@ -154,6 +170,30 @@ const mockLessons: Record<string, Lesson[]> = {
 
 import { initialExcelRows, initialDrillItems, initialRoleplays } from "../data/mockNotionData";
 
+const normalizedInitialDrills = Object.fromEntries(
+  Object.entries(initialDrillItems).map(([lessonCode, drills]) => {
+    const sourceRows = initialExcelRows[lessonCode] || [];
+    const sourceByCode = new Map(sourceRows.map(row => [row.code, row]));
+    return [
+      lessonCode,
+      drills
+        .filter(drill => drill.sourceCode !== "Unknown" && sourceByCode.has(drill.sourceCode))
+        .map(drill => {
+          const source = sourceByCode.get(drill.sourceCode);
+          return {
+            ...drill,
+            assignment: drill.assignment || "drill",
+            scriptText: source?.source || drill.scriptText,
+            meaningEn: source?.en || drill.meaningEn,
+            meaningVn: source?.vn || drill.meaningVn,
+            meaningKr: source?.kr || drill.meaningKr,
+            meaningEs: source?.es || drill.meaningEs
+          };
+        })
+    ];
+  })
+) as Record<string, DrillItem[]>;
+
 const inferContentType = (code: string): ContentType => {
   if (code.includes("_V")) return "vocab";
   if (code.includes("_S")) return "sentence";
@@ -165,8 +205,7 @@ const getRequiredFieldErrors = (row: ExcelRow) => {
   const type = row.type || inferContentType(row.code);
   const errors: string[] = [];
   if (!row.code.trim()) errors.push("code");
-  // Require at least 'en' or 'vn' for meaning
-  if (!row.en.trim() && !row.vn.trim()) errors.push(type === "guided_script" ? "textEnglish" : "meaning/text");
+  if (!row.en.trim()) errors.push(type === "guided_script" ? "textEnglish" : "base meaning");
   if ((type === "vocab" || type === "sentence") && (!row.source.trim() || row.source.trim() === "\\")) {
     errors.push("scriptText");
   }
@@ -256,14 +295,18 @@ export default function CurriculumDashboard() {
   const [showImportPreview, setShowImportPreview] = useState(false);
   const [draggedRowId, setDraggedRowId] = useState<string | null>(null);
   const [dragOverRowId, setDragOverRowId] = useState<string | null>(null);
+  const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
+  const [blankSelectionStart, setBlankSelectionStart] = useState<Record<string, number | undefined>>({});
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const audioInputRef = useRef<HTMLInputElement | null>(null);
   const rowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
   const firstFieldRefs = useRef<Record<string, HTMLTextAreaElement | HTMLInputElement | null>>({});
+  const goalEnglishRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const drillIdRef = useRef(1000);
 
   // States
   const [excelRowsMap, setExcelRowsMap] = useState<Record<string, ExcelRow[]>>(initialExcelRows);
-  const [drillMap, setDrillMap] = useState<Record<string, DrillItem[]>>(initialDrillItems);
+  const [drillMap, setDrillMap] = useState<Record<string, DrillItem[]>>(normalizedInitialDrills);
   const [roleplayMap, setRoleplayMap] = useState<Record<string, Roleplay>>(initialRoleplays);
 
   useEffect(() => {
@@ -284,6 +327,10 @@ export default function CurriculumDashboard() {
 
   const activeLessonCode = selectedLesson?.lessonCode || "";
   const currentRows = excelRowsMap[activeLessonCode] || [];
+  const getLocaleCoverage = (locale: "vn" | "kr" | "es") => {
+    if (currentRows.length === 0) return 0;
+    return Math.round((currentRows.filter(row => row[locale].trim()).length / currentRows.length) * 100);
+  };
   const getNextSystemCode = (type: ContentType, excludedRowId?: string) => {
     const prefixByType: Record<ContentType, string> = {
       guided_script: "A",
@@ -309,11 +356,17 @@ export default function CurriculumDashboard() {
       [activeLessonCode]: prev[activeLessonCode].map(row => {
         if (row.id !== id) return row;
         const hasDependency = Boolean(row.audioUrl) || (drillMap[activeLessonCode] || []).some(drill => drill.sourceCode === row.code);
+        const contentType = row.type || inferContentType(row.code);
+        const affectsAudio = field === "source" || field === "reading" || (contentType === "guided_script" && field === "en");
         return {
           ...row,
           [field]: val,
           status: hasDependency ? "needs_review" : undefined,
-          isEnabled: hasDependency ? false : row.isEnabled
+          isEnabled: hasDependency ? false : row.isEnabled,
+          scriptVersion: affectsAudio ? (row.scriptVersion || 1) + 1 : row.scriptVersion,
+          ttsStatus: affectsAudio && row.audioUrl ? "outdated" : row.ttsStatus,
+          aiQaStatus: affectsAudio && row.audioUrl ? "pending" : row.aiQaStatus,
+          qaStatus: affectsAudio && row.audioUrl ? "pending" : row.qaStatus
         };
       })
     }));
@@ -349,6 +402,8 @@ export default function CurriculumDashboard() {
       status: "incomplete",
       isEnabled: false,
       ttsStatus: "draft",
+      scriptVersion: 1,
+      audioVersion: 0,
       qaStatus: "pending",
       aiQaStatus: "pending"
     };
@@ -359,7 +414,13 @@ export default function CurriculumDashboard() {
     }));
     setIsDirty(true);
     setHighlightedRowId(newRow.id);
-    setToast({ type: "success", message: `Added ${contentType.replace("_", " ")} at row ${newNo}. Complete required fields before enabling.` });
+    const cardLabel: Record<ContentType, string> = {
+      guided_script: "Tutor Card",
+      vocab: "Vocab Card",
+      sentence: "Sentence Card",
+      grammar: "Grammar Card"
+    };
+    setToast({ type: "success", message: `Added ${cardLabel[contentType]} at row ${newNo}. Complete required fields before enabling.` });
     window.setTimeout(() => {
       rowRefs.current[newRow.id]?.scrollIntoView({ behavior: "smooth", block: "center" });
       firstFieldRefs.current[newRow.id]?.focus();
@@ -472,20 +533,30 @@ export default function CurriculumDashboard() {
   const submitLesson = () => {
     const invalidRows = currentRows.filter(row => row.isEnabled && getRequiredFieldErrors(row).length > 0);
     const duplicateCodes = currentRows.filter((row, index, rows) => rows.findIndex(item => item.code === row.code) !== index);
+    const blockedAudio = currentRows.filter(row => row.isEnabled && ["failed", "outdated"].includes(row.ttsStatus));
+    const failedHumanQa = currentRows.filter(row => row.isEnabled && row.qaStatus === "failed");
     if (invalidRows.length || duplicateCodes.length) {
       setToast({ type: "error", message: `Cannot submit: ${invalidRows.length} incomplete enabled row(s), ${duplicateCodes.length} duplicate code(s).` });
       return;
     }
-    if ((selectedLesson?.localizationCoverage || 0) < 100) {
-      setToast({ type: "error", message: `Cannot publish ${activeLessonCode}: native localization coverage is ${selectedLesson?.localizationCoverage || 0}%.` });
+    if (blockedAudio.length || failedHumanQa.length) {
+      setToast({ type: "error", message: `Cannot submit: ${blockedAudio.length} failed/outdated audio row(s), ${failedHumanQa.length} failed Human QA row(s).` });
+      return;
+    }
+    const incompleteLocale = nativeLocales.find(locale => getLocaleCoverage(locale.code) < 100);
+    if (incompleteLocale) {
+      setToast({ type: "error", message: `Cannot publish ${activeLessonCode}: ${incompleteLocale.label} localization coverage is ${getLocaleCoverage(incompleteLocale.code)}%.` });
       return;
     }
     setIsDirty(false);
     setToast({ type: "success", message: `${activeLessonCode} submitted successfully and is ready for review.` });
   };
 
-  const generateMissingAudio = () => {
-    const missingRows = currentRows.filter(r => r.ttsStatus === "draft" || r.ttsStatus === "failed");
+  const generateMissingAudio = (ids?: string[]) => {
+    const requestedIds = ids ? new Set(ids) : null;
+    const missingRows = currentRows.filter(r =>
+      (!requestedIds || requestedIds.has(r.id)) && ["draft", "failed", "outdated"].includes(r.ttsStatus)
+    );
     if (missingRows.length === 0) {
       setToast({ type: "success", message: "All audio files have already been generated." });
       return;
@@ -522,6 +593,32 @@ export default function CurriculumDashboard() {
     });
   };
 
+  const hasValidImportSchema = (headers: string[]) => {
+    const normalized = headers.map(header => String(header).toLowerCase().replace(/[\s_-]+/g, ""));
+    return (
+      normalized.some(header => ["code", "systemcode", "dataid"].includes(header)) &&
+      normalized.some(header => ["source", "sourcetext", "script"].includes(header)) &&
+      normalized.some(header => ["english", "meaningen", "en"].includes(header))
+    );
+  };
+
+  const showInvalidImportSchema = () => {
+    setImportPreview([{
+      rowNumber: 1,
+      code: "",
+      type: "invalid",
+      sourceText: "",
+      reading: "",
+      meaningEn: "",
+      meaningVn: "",
+      meaningKr: "",
+      meaningEs: "",
+      status: "invalid",
+      errors: ["Invalid schema. Required columns: Code, Source, and English."]
+    }]);
+    setShowImportPreview(true);
+  };
+
   const handleImportFile = async (file: File) => {
     setImportFileName(file.name);
     if (!file.name.toLowerCase().endsWith(".csv")) {
@@ -534,14 +631,24 @@ export default function CurriculumDashboard() {
         const paddedRow = [...row, "", "", "", "", "", "", ""].slice(0, 7);
         return paddedRow.map(cell => String(cell).trim());
       }).filter(row => row.some(cell => cell !== ""));
+      if (!hasValidImportSchema(rows[0] || [])) {
+        showInvalidImportSchema();
+        return;
+      }
       setImportPreview(buildImportPreview(rows.slice(1)));
       setShowImportPreview(true);
       return;
     }
     if (file.name.toLowerCase().endsWith(".csv")) {
-      const text = await file.text();
-      const lines = text.split(/\r?\n/).filter(Boolean);
-      setImportPreview(buildImportPreview(lines.slice(1).map(line => line.split(","))));
+      const XLSX = await import("xlsx");
+      const workbook = XLSX.read(await file.text(), { type: "string" });
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" }) as string[][];
+      if (!hasValidImportSchema(rows[0] || [])) {
+        showInvalidImportSchema();
+        return;
+      }
+      setImportPreview(buildImportPreview(rows.slice(1).map(row => row.map(cell => String(cell)))));
     } else {
       const sampleRows = [
         [`${activeLessonCode}_V99`, "示例", "shì lì", "example"],
@@ -570,7 +677,10 @@ export default function CurriculumDashboard() {
       status: "ready",
       isEnabled: false,
       ttsStatus: "draft",
-      qaStatus: "pending"
+      scriptVersion: 1,
+      audioVersion: 0,
+      qaStatus: "pending",
+      aiQaStatus: "pending"
     }));
     setExcelRowsMap(prev => ({
       ...prev,
@@ -584,18 +694,26 @@ export default function CurriculumDashboard() {
   // ----------------------------------------------------
   // TAB 2: TUTOR & AUDIO QA ACTIONS (UC02 - Layer 3)
   // ----------------------------------------------------
-  const handleTranslationEdit = (id: string, val: string) => {
-    setExcelRowsMap(prev => ({
-      ...prev,
-      [activeLessonCode]: prev[activeLessonCode].map(row => row.id === id ? { ...row, en: val } : row)
-    }));
-  };
-
   const updateQAStatus = (id: string, status: "passed" | "failed") => {
+    const row = currentRows.find(item => item.id === id);
+    if (!row || row.aiQaStatus !== "passed") {
+      setToast({ type: "error", message: `${row?.code || "This row"} requires AI QA Pass before Human QA.` });
+      return;
+    }
+    const reason = status === "failed"
+      ? window.prompt("Reason for Human QA failure:", row.humanQaReason || "")?.trim()
+      : "";
+    if (status === "failed" && !reason) {
+      setToast({ type: "warning", message: "A failure reason is required for Human QA Fail." });
+      return;
+    }
     setExcelRowsMap(prev => ({
       ...prev,
-      [activeLessonCode]: prev[activeLessonCode].map(row => row.id === id ? { ...row, qaStatus: status } : row)
+      [activeLessonCode]: prev[activeLessonCode].map(item =>
+        item.id === id ? { ...item, qaStatus: status, humanQaReason: reason || undefined } : item
+      )
     }));
+    setIsDirty(true);
   };
 
   const regenerateAudio = (id: string) => {
@@ -610,11 +728,80 @@ export default function CurriculumDashboard() {
         [activeLessonCode]: prev[activeLessonCode].map(row => row.id === id ? { 
           ...row, 
           ttsStatus: "success", 
-          aiQaStatus: "passed",
+          audioSource: "generated",
+          audioVersion: (row.audioVersion || 0) + 1,
+          aiQaStatus: "pending",
+          qaStatus: "pending",
           audioUrl: "https://www.soundjay.com/buttons/sounds/button-3.mp3" 
         } : row)
       }));
     }, 1500);
+  };
+
+  const runAiQa = (ids: string[]) => {
+    const eligibleIds = new Set(ids.filter(id => {
+      const row = currentRows.find(item => item.id === id);
+      return row?.ttsStatus === "success" && Boolean(row.audioUrl);
+    }));
+    if (eligibleIds.size === 0) {
+      setToast({ type: "warning", message: "No selected row has a current audio revision ready for AI QA." });
+      return;
+    }
+    setExcelRowsMap(prev => ({
+      ...prev,
+      [activeLessonCode]: prev[activeLessonCode].map(row =>
+        eligibleIds.has(row.id) ? { ...row, aiQaStatus: "passed", qaStatus: "pending" } : row
+      )
+    }));
+    setIsDirty(true);
+    setToast({ type: "success", message: `AI QA passed for ${eligibleIds.size} audio row(s).` });
+  };
+
+  const handleAudioFiles = (files: FileList) => {
+    const allowedExtensions = new Set(["mp3", "m4a", "wav", "ogg"]);
+    const seenCodes = new Set<string>();
+    const matches = new Map<string, File>();
+    let invalid = 0;
+    let duplicate = 0;
+    let unmatched = 0;
+
+    Array.from(files).forEach(file => {
+      const extension = file.name.split(".").pop()?.toLowerCase() || "";
+      const code = file.name.replace(/\.[^.]+$/, "");
+      if (!allowedExtensions.has(extension)) {
+        invalid += 1;
+      } else if (seenCodes.has(code)) {
+        duplicate += 1;
+      } else if (!currentRows.some(row => row.code === code)) {
+        unmatched += 1;
+      } else {
+        seenCodes.add(code);
+        matches.set(code, file);
+      }
+    });
+
+    setExcelRowsMap(prev => ({
+      ...prev,
+      [activeLessonCode]: prev[activeLessonCode].map(row => {
+        const file = matches.get(row.code);
+        return file
+          ? {
+              ...row,
+              audioUrl: URL.createObjectURL(file),
+              audioSource: "uploaded",
+              audioVersion: (row.audioVersion || 0) + 1,
+              ttsStatus: "success",
+              aiQaStatus: "pending",
+              qaStatus: "pending"
+            }
+          : row;
+      })
+    }));
+    setIsDirty(matches.size > 0 || isDirty);
+    setToast({
+      type: matches.size > 0 ? "success" : "warning",
+      message: `Matched ${matches.size} audio file(s). Unmatched: ${unmatched}, duplicate: ${duplicate}, invalid format: ${invalid}.`
+    });
   };
 
   // ----------------------------------------------------
@@ -622,7 +809,7 @@ export default function CurriculumDashboard() {
   // ----------------------------------------------------
   const currentDrills = drillMap[activeLessonCode] || [];
 
-  const handleDrillEdit = (id: string, field: keyof DrillItem, val: any) => {
+  const handleDrillEdit = <K extends keyof DrillItem>(id: string, field: K, val: DrillItem[K]) => {
     setDrillMap(prev => ({
       ...prev,
       [activeLessonCode]: prev[activeLessonCode].map(d => d.id === id ? { ...d, [field]: val } : d)
@@ -630,9 +817,13 @@ export default function CurriculumDashboard() {
   };
 
   const addDrillFromExcel = (row: ExcelRow) => {
+    const existing = currentDrills.find(drill => drill.sourceCode === row.code);
+    if (existing) {
+      setToast({ type: "warning", message: `${row.code} is already assigned to ${existing.assignment === "extra_drill" ? "Extra Drill" : "Drill"}. Remove it before reassigning.` });
+      return;
+    }
     const isVocab = row.code.includes("_V");
     const cleanText = row.source;
-    const cleanMeaning = row.en;
     
     drillIdRef.current += 1;
     const newDrill: DrillItem = {
@@ -643,13 +834,16 @@ export default function CurriculumDashboard() {
       meaningVn: row.vn,
       meaningKr: row.kr,
       meaningEs: row.es,
-      sourceCode: row.code
+      sourceCode: row.code,
+      assignment: "drill"
     };
     
     setDrillMap(prev => ({
       ...prev,
       [activeLessonCode]: [...(prev[activeLessonCode] || []), newDrill]
     }));
+    setIsDirty(true);
+    setToast({ type: "success", message: `Added ${row.code} to Main Drill.` });
   };
 
   const deleteDrill = (id: string) => {
@@ -657,6 +851,7 @@ export default function CurriculumDashboard() {
       ...prev,
       [activeLessonCode]: prev[activeLessonCode].filter(d => d.id !== id)
     }));
+    setIsDirty(true);
   };
 
   const reorderDrills = (fromId: string, toId: string) => {
@@ -669,17 +864,67 @@ export default function CurriculumDashboard() {
       arr.splice(toIndex, 0, movedItem);
       return { ...prev, [activeLessonCode]: arr };
     });
+    setIsDirty(true);
+  };
+
+  const selectBlankToken = (drill: DrillItem, index: number) => {
+    const pendingStart = blankSelectionStart[drill.id];
+    if (pendingStart === undefined) {
+      setBlankSelectionStart(prev => ({ ...prev, [drill.id]: index }));
+      handleDrillEdit(drill.id, "blankStart", index);
+      handleDrillEdit(drill.id, "blankEnd", index);
+      handleDrillEdit(drill.id, "promptBefore", drill.scriptText.slice(0, index));
+      handleDrillEdit(drill.id, "answer", drill.scriptText.slice(index, index + 1));
+      handleDrillEdit(drill.id, "promptAfter", drill.scriptText.slice(index + 1));
+      return;
+    }
+    const start = Math.min(pendingStart, index);
+    const end = Math.max(pendingStart, index);
+    handleDrillEdit(drill.id, "blankStart", start);
+    handleDrillEdit(drill.id, "blankEnd", end);
+    handleDrillEdit(drill.id, "promptBefore", drill.scriptText.slice(0, start));
+    handleDrillEdit(drill.id, "answer", drill.scriptText.slice(start, end + 1));
+    handleDrillEdit(drill.id, "promptAfter", drill.scriptText.slice(end + 1));
+    setBlankSelectionStart(prev => ({ ...prev, [drill.id]: undefined }));
+    setIsDirty(true);
+  };
+
+  const saveDrills = () => {
+    const orphan = currentDrills.find(drill => !currentRows.some(row => row.code === drill.sourceCode));
+    const invalidFillBlank = currentDrills.find(drill =>
+      drill.drillType === "fill_blank" && (!drill.answer?.trim() || drill.blankStart === undefined || drill.blankEnd === undefined)
+    );
+    if (orphan) {
+      setToast({ type: "error", message: `${orphan.sourceCode} is an orphan Drill item. Pick a valid Layer 2 source card.` });
+      return;
+    }
+    if (invalidFillBlank) {
+      setToast({ type: "error", message: `${invalidFillBlank.sourceCode} requires one contiguous blank token range.` });
+      return;
+    }
+    setIsDirty(false);
+    setToast({
+      type: "success",
+      message: `Saved ${currentDrills.filter(drill => drill.assignment !== "extra_drill").length} Drill and ${currentDrills.filter(drill => drill.assignment === "extra_drill").length} Extra Drill item(s).`
+    });
   };
 
   // ----------------------------------------------------
   // TAB 4: ROLEPLAY SETUP ACTIONS (UC04 - Layer 3)
   // ----------------------------------------------------
-  const currentRoleplay = roleplayMap[activeLessonCode] || { id: "new", goals: [] };
+  const currentRoleplay = roleplayMap[activeLessonCode] || {
+    id: `roleplay-${activeLessonCode || "new"}`,
+    lessonTitle: selectedLesson?.title || "",
+    title: "",
+    setup: "",
+    goals: []
+  };
 
   const addRoleplayGoal = () => {
     const newGoal: RoleplayGoal = {
       id: `g-${Date.now()}`,
       orderIndex: currentRoleplay.goals.length + 1,
+      title: "",
       successCriteria: "",
       descriptionEn: "",
       descriptionNative: "",
@@ -692,11 +937,12 @@ export default function CurriculumDashboard() {
         goals: [...currentRoleplay.goals, newGoal]
       }
     }));
-    
-    // Auto-focus logic can be handled via ref or just standard react flow, but since we don't have a specific ref array for goals, we let the user tab to it or add a timeout if needed.
+    setIsDirty(true);
+    window.setTimeout(() => goalEnglishRefs.current[newGoal.id]?.focus(), 80);
+    setToast({ type: "success", message: `Added Roleplay Goal at row ${newGoal.orderIndex}.` });
   };
 
-  const editRoleplayGoal = (goalId: string, field: keyof RoleplayGoal, val: any) => {
+  const editRoleplayGoal = <K extends keyof RoleplayGoal>(goalId: string, field: K, val: RoleplayGoal[K]) => {
     setRoleplayMap(prev => ({
       ...prev,
       [activeLessonCode]: {
@@ -704,6 +950,7 @@ export default function CurriculumDashboard() {
         goals: currentRoleplay.goals.map(g => g.id === goalId ? { ...g, [field]: val } : g)
       }
     }));
+    setIsDirty(true);
   };
 
   const removeRoleplayGoal = (goalId: string) => {
@@ -718,6 +965,7 @@ export default function CurriculumDashboard() {
         }
       }
     });
+    setIsDirty(true);
   };
 
   const reorderRoleplayGoal = (goalId: string, direction: "up" | "down") => {
@@ -742,6 +990,33 @@ export default function CurriculumDashboard() {
         goals: reindexed
       }
     }));
+    setIsDirty(true);
+  };
+
+  const saveRoleplay = () => {
+    const activeGoals = currentRoleplay.goals.filter(goal => goal.isEnabled);
+    const invalidGoal = activeGoals.find(goal =>
+      !(goal.title?.trim() || goal.successCriteria.trim()) ||
+      !goal.descriptionEn.trim() ||
+      !goal.successCriteria.trim()
+    );
+    if (!currentRoleplay.title?.trim() || !currentRoleplay.setup?.trim()) {
+      setToast({ type: "error", message: "Roleplay requires a mobile title and context description." });
+      return;
+    }
+    if (activeGoals.length === 0 || invalidGoal) {
+      setToast({ type: "error", message: "Roleplay requires at least one enabled goal with title, English description and success criteria." });
+      return;
+    }
+    setRoleplayMap(prev => ({
+      ...prev,
+      [activeLessonCode]: {
+        ...currentRoleplay,
+        lessonTitle: selectedLesson?.title || currentRoleplay.lessonTitle || ""
+      }
+    }));
+    setIsDirty(false);
+    setToast({ type: "success", message: `Roleplay configured with ${activeGoals.length} active goal(s).` });
   };
 
   // Filtered rows for Excel Sheet View
@@ -786,6 +1061,7 @@ export default function CurriculumDashboard() {
                   const languageCode = e.target.value;
                   setSelectedLanguageCode(languageCode);
                   setSelectedLesson(mockLessons[languageCode]?.[0] || null);
+                  setSelectedRowIds(new Set());
                   setIsDirty(false);
                 }}
                 className="w-full bg-white border border-stone-200 rounded-xl py-2 pl-3 pr-8 text-xs text-stone-855 font-medium focus:outline-none focus:border-stone-400 transition-colors duration-200 cursor-pointer appearance-none"
@@ -813,7 +1089,11 @@ export default function CurriculumDashboard() {
                 return (
                   <button
                     key={lesson.id}
-                    onClick={() => setSelectedLesson(lesson)}
+                    onClick={() => {
+                      setSelectedLesson(lesson);
+                      setSelectedRowIds(new Set());
+                      setIsDirty(false);
+                    }}
                     className={`w-full text-left p-3.5 rounded-xl border transition-all duration-200 cursor-pointer relative group flex items-start space-x-3 ${
                       isSelected 
                         ? "bg-[#F8F7F5] border-stone-200/80" 
@@ -955,9 +1235,21 @@ export default function CurriculumDashboard() {
                   <div className="mt-3 flex items-center gap-3 text-[10px] text-stone-800">
                     <span className="font-mono">{activeLessonCode}</span>
                     <ChevronRight size={10} />
-                    <span>{selectedLesson?.localizationCoverage || 0}% localization coverage</span>
-                    <ChevronRight size={10} />
                     <span>{currentRows.filter(row => row.isEnabled).length}/{currentRows.length} enabled</span>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {nativeLocales.map(locale => {
+                      const coverage = getLocaleCoverage(locale.code);
+                      return (
+                        <span key={locale.code} className={`rounded-full border px-2 py-0.5 text-[9px] font-semibold ${
+                          coverage === 100
+                            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                            : "border-amber-200 bg-amber-50 text-amber-700"
+                        }`}>
+                          {locale.code.toUpperCase()} {coverage}%
+                        </span>
+                      );
+                    })}
                   </div>
                 </div>
                 
@@ -970,6 +1262,17 @@ export default function CurriculumDashboard() {
                     onChange={(event) => {
                       const file = event.target.files?.[0];
                       if (file) void handleImportFile(file);
+                      event.target.value = "";
+                    }}
+                  />
+                  <input
+                    ref={audioInputRef}
+                    type="file"
+                    accept=".mp3,.m4a,.wav,.ogg,audio/*"
+                    multiple
+                    className="hidden"
+                    onChange={(event) => {
+                      if (event.target.files?.length) handleAudioFiles(event.target.files);
                       event.target.value = "";
                     }}
                   />
@@ -989,11 +1292,25 @@ export default function CurriculumDashboard() {
                     <span>Save Draft</span>
                   </button>
                   <button
-                    onClick={generateMissingAudio}
+                    onClick={() => generateMissingAudio(selectedRowIds.size ? Array.from(selectedRowIds) : undefined)}
                     className="flex items-center gap-1.5 rounded-lg border border-stone-200 bg-white px-3 py-1.5 font-medium text-stone-700 transition-colors hover:bg-stone-50"
                   >
                     <Volume2 size={12} />
-                    <span>Generate Missing Audio</span>
+                    <span>{selectedRowIds.size ? `Generate Selected (${selectedRowIds.size})` : "Generate Missing Audio"}</span>
+                  </button>
+                  <button
+                    onClick={() => audioInputRef.current?.click()}
+                    className="flex items-center gap-1.5 rounded-lg border border-stone-200 bg-white px-3 py-1.5 font-medium text-stone-700 transition-colors hover:bg-stone-50"
+                  >
+                    <Upload size={12} />
+                    <span>Upload Audio</span>
+                  </button>
+                  <button
+                    onClick={() => runAiQa(selectedRowIds.size ? Array.from(selectedRowIds) : currentRows.map(row => row.id))}
+                    className="flex items-center gap-1.5 rounded-lg border border-stone-200 bg-white px-3 py-1.5 font-medium text-stone-700 transition-colors hover:bg-stone-50"
+                  >
+                    <Sparkles size={12} />
+                    <span>AI QA {selectedRowIds.size ? `Selected (${selectedRowIds.size})` : "Ready"}</span>
                   </button>
                   <button
                     onClick={submitLesson}
@@ -1059,9 +1376,19 @@ export default function CurriculumDashboard() {
 
               {/* Spreadsheet Grid (Editorial styling) */}
               <div className="bg-white border border-stone-200/80 rounded-2xl overflow-x-auto shadow-none">
-                <table className="w-full min-w-[1750px] text-left border-collapse text-xs table-fixed">
+                <table className="w-full min-w-[1900px] text-left border-collapse text-xs table-fixed">
                   <thead>
                     <tr className="border-b border-stone-200 text-[10px] text-stone-800 uppercase font-semibold tracking-wider bg-stone-50/50">
+                      <th className="py-4 px-3 w-12 text-center font-serif">
+                        <input
+                          type="checkbox"
+                          aria-label="Select all curriculum rows"
+                          checked={currentRows.length > 0 && selectedRowIds.size === currentRows.length}
+                          onChange={event => {
+                            setSelectedRowIds(event.target.checked ? new Set(currentRows.map(row => row.id)) : new Set());
+                          }}
+                        />
+                      </th>
                       <th className="py-4 px-4 w-20 text-center font-serif">Order</th>
                       <th className="py-4 px-4 w-32 font-serif">Content Type</th>
                       <th className="py-4 px-4 w-36 font-serif">System Code</th>
@@ -1082,7 +1409,7 @@ export default function CurriculumDashboard() {
                   <tbody className="divide-y divide-stone-100 font-sans">
                     {filteredRows.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="py-8 text-center text-stone-600 italic">No curriculum records configured.</td>
+                        <td colSpan={16} className="py-8 text-center text-stone-600 italic">No curriculum records configured.</td>
                       </tr>
                     ) : (
                       filteredRows.map((row) => {
@@ -1116,6 +1443,21 @@ export default function CurriculumDashboard() {
                                   : "hover:bg-stone-50/30"
                             } ${draggedRowId === row.id ? "opacity-50" : ""}`}
                           >
+                            <td className="py-4 px-3 text-center align-top">
+                              <input
+                                type="checkbox"
+                                aria-label={`Select ${row.code}`}
+                                checked={selectedRowIds.has(row.id)}
+                                onChange={event => {
+                                  setSelectedRowIds(previous => {
+                                    const next = new Set(previous);
+                                    if (event.target.checked) next.add(row.id);
+                                    else next.delete(row.id);
+                                    return next;
+                                  });
+                                }}
+                              />
+                            </td>
                             <td className="py-4 px-4">
                               <div className="flex items-center justify-center gap-2">
                                 <button
@@ -1240,7 +1582,12 @@ export default function CurriculumDashboard() {
                                     Generating
                                   </span>
                                 )}
-                                {(row.ttsStatus === "draft" || row.ttsStatus === "failed") && (
+                                {row.ttsStatus === "outdated" && (
+                                  <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[9px] font-bold text-amber-700">
+                                    Outdated
+                                  </span>
+                                )}
+                                {(["draft", "failed", "outdated"] as ExcelRow["ttsStatus"][]).includes(row.ttsStatus) && (
                                   <button
                                     onClick={() => regenerateAudio(row.id)}
                                     className={`p-1.5 rounded-lg border transition-colors duration-200 cursor-pointer ${
@@ -1251,6 +1598,9 @@ export default function CurriculumDashboard() {
                                     <RotateCw size={11} />
                                   </button>
                                 )}
+                                <span className="text-[8px] text-stone-500">
+                                  {row.audioSource || "none"} · script v{row.scriptVersion || 1} / audio v{row.audioVersion || 0}
+                                </span>
                               </div>
                             </td>
                             
@@ -1264,10 +1614,11 @@ export default function CurriculumDashboard() {
                               <div className="flex items-center justify-center gap-1">
                                 <button
                                   onClick={() => updateQAStatus(row.id, "passed")}
+                                  disabled={row.aiQaStatus !== "passed"}
                                   className={`p-1.5 rounded-lg transition-colors duration-200 cursor-pointer border ${
                                     row.qaStatus === "passed"
                                       ? "bg-[#C27A5C] border-[#C27A5C] text-white"
-                                      : "bg-white border-stone-200 text-stone-600 hover:text-stone-700 hover:bg-stone-50"
+                                      : "bg-white border-stone-200 text-stone-600 hover:text-stone-700 hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-30"
                                   }`}
                                   title="Pass Human QA"
                                 >
@@ -1275,16 +1626,18 @@ export default function CurriculumDashboard() {
                                 </button>
                                 <button
                                   onClick={() => updateQAStatus(row.id, "failed")}
+                                  disabled={row.aiQaStatus !== "passed"}
                                   className={`p-1.5 rounded-lg transition-colors duration-200 cursor-pointer border ${
                                     row.qaStatus === "failed"
                                       ? "bg-stone-800 border-stone-800 text-white"
-                                      : "bg-white border-stone-200 text-stone-600 hover:text-stone-700 hover:bg-stone-50"
+                                      : "bg-white border-stone-200 text-stone-600 hover:text-stone-700 hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-30"
                                   }`}
                                   title="Fail Human QA"
                                 >
                                   <X size={11} />
                                 </button>
                               </div>
+                              {row.humanQaReason && <p className="mt-1 text-[8px] leading-tight text-rose-600">{row.humanQaReason}</p>}
                             </td>
 
                             <td className="py-4 px-4 align-top">
@@ -1350,6 +1703,67 @@ export default function CurriculumDashboard() {
 
           {/* UC03: Drill Config */}
           {activeTab === "drills" && (
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-stone-200/80 bg-white p-5">
+                <div className="flex items-start justify-between gap-6">
+                  <div>
+                    <h4 className="text-xs font-bold uppercase tracking-wide text-stone-800 font-serif">Layer 2 Source Assignment</h4>
+                    <p className="mt-1 text-[10px] text-stone-600">Each source card can belong to Main Drill or Extra Drill, never both.</p>
+                  </div>
+                  <button onClick={saveDrills} className="flex items-center gap-1.5 rounded-lg bg-stone-800 px-3 py-2 text-xs font-semibold text-white hover:bg-stone-700">
+                    <Save size={12} />
+                    <span>Save Drill Configuration</span>
+                  </button>
+                </div>
+                <div className="mt-4 overflow-x-auto">
+                  <table className="w-full min-w-[800px] text-left text-xs">
+                    <thead>
+                      <tr className="border-b border-stone-200 text-[9px] font-semibold uppercase tracking-wide text-stone-500">
+                        <th className="px-3 py-2">Source Code</th>
+                        <th className="px-3 py-2">Source Content</th>
+                        <th className="px-3 py-2">Assignment</th>
+                        <th className="px-3 py-2 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-stone-100">
+                      {currentRows
+                        .filter(row => ["vocab", "sentence"].includes(row.type || inferContentType(row.code)))
+                        .map(row => {
+                          const assignment = currentDrills.find(drill => drill.sourceCode === row.code);
+                          return (
+                            <tr key={`assignment-${row.id}`}>
+                              <td className="px-3 py-2 font-mono font-semibold text-stone-700">{row.code}</td>
+                              <td className="max-w-md truncate px-3 py-2 text-stone-700">{row.source}</td>
+                              <td className="px-3 py-2">
+                                <span className={`inline-flex rounded-full border px-2 py-1 text-[9px] font-semibold ${
+                                  assignment?.assignment === "extra_drill"
+                                    ? "border-violet-200 bg-violet-50 text-violet-700"
+                                    : assignment
+                                      ? "border-sky-200 bg-sky-50 text-sky-700"
+                                      : "border-stone-200 bg-stone-50 text-stone-500"
+                                }`}>
+                                  {assignment?.assignment === "extra_drill" ? "Extra Drill" : assignment ? "Main Drill" : "Not Added"}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2 text-right">
+                                {assignment ? (
+                                  <button onClick={() => deleteDrill(assignment.id)} className="rounded-lg border border-stone-200 px-2 py-1 text-[10px] text-stone-600 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600">
+                                    Remove assignment
+                                  </button>
+                                ) : (
+                                  <button onClick={() => addDrillFromExcel(row)} className="rounded-lg bg-stone-800 px-2 py-1 text-[10px] font-semibold text-white hover:bg-stone-700">
+                                    Add to Main Drill
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
             <div className="bg-white border border-stone-200/80 rounded-2xl overflow-hidden shadow-none">
               <div className="p-5 border-b border-stone-100 flex justify-between items-center bg-stone-50/50">
                 <div>
@@ -1375,8 +1789,8 @@ export default function CurriculumDashboard() {
                   </thead>
                   <tbody>
                     {/* ADDED DRILLS (with Drag and Drop) */}
-                    {currentDrills.map((drill, idx) => {
-                      const row = currentRows.find(r => r.source === drill.sourceCode) || { id: `dummy-${drill.id}`, source: drill.sourceCode };
+                    {currentDrills.map((drill) => {
+                      const row = currentRows.find(r => r.code === drill.sourceCode);
                       const isFillBlank = drill.drillType === "fill_blank";
 
                       return (
@@ -1425,7 +1839,7 @@ export default function CurriculumDashboard() {
                                   <GripVertical size={13} />
                                 </button>
                                 <span className="font-mono text-[10px] font-bold bg-stone-100 py-1 px-2 rounded-lg border border-stone-200 text-stone-900 truncate block text-center w-full">
-                                  {row.source || "-"}
+                                  {drill.sourceCode}
                                 </span>
                               </div>
                             </td>
@@ -1469,90 +1883,33 @@ export default function CurriculumDashboard() {
                             {/* Target Script */}
                             <td className="py-3 px-4">
                               <div className="space-y-2">
-                                <input 
-                                  type="text" 
-                                  value={drill.scriptText} 
-                                  onChange={(e) => handleDrillEdit(drill.id, "scriptText", e.target.value)}
-                                  className="w-full bg-transparent border border-stone-200 hover:border-[#C27A5C]/50 focus:border-[#C27A5C] rounded-lg px-2 py-1 text-xs text-stone-800 font-bold focus:outline-none transition-colors"
-                                  placeholder="Script text"
-                                />
-                                {isFillBlank && (
-                                  <>
-                                    <div className="flex space-x-2">
-                                      <input 
-                                        type="text" 
-                                        value={drill.promptBefore || ""} 
-                                        onChange={(e) => handleDrillEdit(drill.id, "promptBefore", e.target.value)}
-                                        placeholder="Prompt Before"
-                                        className="w-1/2 bg-white border border-stone-200 rounded-lg px-2 py-1 text-[10px] text-stone-700 focus:outline-none focus:border-stone-400"
-                                      />
-                                      <input 
-                                        type="text" 
-                                        value={drill.answer || ""} 
-                                        onChange={(e) => handleDrillEdit(drill.id, "answer", e.target.value)}
-                                        placeholder="Answer (Blank)"
-                                        className="w-1/2 bg-stone-100 border border-stone-200 rounded-lg px-2 py-1 text-[10px] text-stone-900 font-bold focus:outline-none focus:border-stone-400"
-                                      />
-                                    </div>
-                                    <div className="flex space-x-2">
-                                      <input 
-                                        type="text" 
-                                        value={drill.promptAfter || ""} 
-                                        onChange={(e) => handleDrillEdit(drill.id, "promptAfter", e.target.value)}
-                                        placeholder="Prompt After"
-                                        className="w-1/2 bg-white border border-stone-200 rounded-lg px-2 py-1 text-[10px] text-stone-700 focus:outline-none focus:border-stone-400"
-                                      />
-                                      <input 
-                                        type="text" 
-                                        value={drill.choices || ""} 
-                                        onChange={(e) => handleDrillEdit(drill.id, "choices", e.target.value)}
-                                        placeholder="Choices (comma separated)"
-                                        className="w-1/2 bg-white border border-stone-200 rounded-lg px-2 py-1 text-[10px] text-stone-700 focus:outline-none focus:border-stone-400"
-                                      />
-                                    </div>
-                                  </>
+                                <div className="rounded-lg border border-stone-200 bg-stone-50 px-2 py-1 text-xs font-bold text-stone-800">
+                                  {row?.source || drill.scriptText || "Orphan source"}
+                                </div>
+                                {drill.drillType === "sentence_order" && (
+                                  <p className="text-[9px] text-stone-500">Tokens are derived automatically from the source sentence.</p>
                                 )}
                               </div>
                             </td>
 
                             {/* Meaning EN */}
                             <td className="py-3 px-4">
-                              <input 
-                                type="text" 
-                                value={drill.meaningEn} 
-                                onChange={(e) => handleDrillEdit(drill.id, "meaningEn", e.target.value)}
-                                className="w-full bg-stone-50 border border-stone-200 hover:border-stone-400 focus:border-[#C27A5C] rounded-lg px-2 py-1 text-[11px] text-stone-700 focus:outline-none transition-colors"
-                              />
+                              <div className="rounded-lg border border-stone-100 bg-stone-50 px-2 py-1 text-[11px] text-stone-700">{row?.en || drill.meaningEn || "-"}</div>
                             </td>
 
                             {/* Meaning VN */}
                             <td className="py-3 px-4">
-                              <input 
-                                type="text" 
-                                value={drill.meaningVn} 
-                                onChange={(e) => handleDrillEdit(drill.id, "meaningVn", e.target.value)}
-                                className="w-full bg-stone-50 border border-stone-200 hover:border-stone-400 focus:border-[#C27A5C] rounded-lg px-2 py-1 text-[11px] text-stone-700 focus:outline-none transition-colors"
-                              />
+                              <div className="rounded-lg border border-stone-100 bg-stone-50 px-2 py-1 text-[11px] text-stone-700">{row?.vn || drill.meaningVn || "-"}</div>
                             </td>
 
                             {/* Meaning KR */}
                             <td className="py-3 px-4">
-                              <input 
-                                type="text" 
-                                value={drill.meaningKr} 
-                                onChange={(e) => handleDrillEdit(drill.id, "meaningKr", e.target.value)}
-                                className="w-full bg-stone-50 border border-stone-200 hover:border-stone-400 focus:border-[#C27A5C] rounded-lg px-2 py-1 text-[11px] text-stone-700 focus:outline-none transition-colors"
-                              />
+                              <div className="rounded-lg border border-stone-100 bg-stone-50 px-2 py-1 text-[11px] text-stone-700">{row?.kr || drill.meaningKr || "-"}</div>
                             </td>
 
                             {/* Meaning ES */}
                             <td className="py-3 px-4">
-                              <input 
-                                type="text" 
-                                value={drill.meaningEs} 
-                                onChange={(e) => handleDrillEdit(drill.id, "meaningEs", e.target.value)}
-                                className="w-full bg-stone-50 border border-stone-200 hover:border-stone-400 focus:border-[#C27A5C] rounded-lg px-2 py-1 text-[11px] text-stone-700 focus:outline-none transition-colors"
-                              />
+                              <div className="rounded-lg border border-stone-100 bg-stone-50 px-2 py-1 text-[11px] text-stone-700">{row?.es || drill.meaningEs || "-"}</div>
                             </td>
                           </tr>
 
@@ -1566,23 +1923,13 @@ export default function CurriculumDashboard() {
                                     <span>Fill-in-the-blank Token Selection</span>
                                   </div>
                                   <div className="flex flex-wrap gap-1 p-3 bg-stone-50/50 rounded-lg border border-stone-200/60">
-                                    {drill.scriptText.split('').map((char, idx) => {
-                                      const currentBefore = drill.promptBefore || "";
-                                      const currentAns = drill.answer || "";
-                                      const isMatch = drill.scriptText.startsWith(currentBefore) && drill.scriptText.slice(currentBefore.length).startsWith(currentAns) && currentAns.length > 0;
-                                      const isSelected = isMatch && idx >= currentBefore.length && idx < currentBefore.length + currentAns.length;
+                                    {Array.from(row?.source || drill.scriptText).map((char, idx) => {
+                                      const isSelected = drill.blankStart !== undefined && drill.blankEnd !== undefined && idx >= drill.blankStart && idx <= drill.blankEnd;
                                       
                                       return (
                                         <button
                                           key={idx}
-                                          onClick={() => {
-                                            const before = drill.scriptText.slice(0, idx);
-                                            const ans = drill.scriptText[idx];
-                                            const after = drill.scriptText.slice(idx + 1);
-                                            handleDrillEdit(drill.id, "promptBefore", before);
-                                            handleDrillEdit(drill.id, "answer", ans);
-                                            handleDrillEdit(drill.id, "promptAfter", after);
-                                          }}
+                                          onClick={() => selectBlankToken({ ...drill, scriptText: row?.source || drill.scriptText }, idx)}
                                           className={`px-2 py-1 rounded-md text-sm transition-colors duration-200 cursor-pointer ${
                                             isSelected 
                                               ? "bg-[#C27A5C] text-white font-bold shadow-sm" 
@@ -1594,7 +1941,9 @@ export default function CurriculumDashboard() {
                                       );
                                     })}
                                   </div>
-                                  <div className="text-[10px] text-stone-800 italic">Click a character above to mark it as the missing blank.</div>
+                                  <div className="text-[10px] text-stone-800 italic">
+                                    Click the first and last character of one contiguous blank range. Click once for a single-character blank.
+                                  </div>
                                   <div className="grid grid-cols-3 gap-3 pt-2 border-t border-stone-100">
                                     <div>
                                       <label className="block text-[8px] text-stone-800 uppercase font-semibold mb-0.5">Prompt Before</label>
@@ -1627,6 +1976,7 @@ export default function CurriculumDashboard() {
                 </table>
               </div>
             </div>
+            </div>
           )}
 
           {/* TAB 4: ROLEPLAY SETUP VIEW */}
@@ -1638,35 +1988,55 @@ export default function CurriculumDashboard() {
                     <h4 className="text-xs font-bold text-stone-800 uppercase tracking-wide font-serif">Roleplay Editor</h4>
                     <p className="text-[10px] text-stone-800 mt-1">Configure roleplay context and goals to align with the Mobile App.</p>
                   </div>
-                  <button
-                    onClick={addRoleplayGoal}
-                    className="bg-stone-800 hover:bg-stone-700 text-white py-1.5 px-3 rounded-lg text-xs font-bold flex items-center space-x-1 cursor-pointer transition-colors duration-200 active:scale-95 border border-stone-800"
-                  >
-                    <Plus size={12} />
-                    <span>Add Goal</span>
-                  </button>
+                  <div className="flex gap-2">
+                    <button onClick={saveRoleplay} className="flex items-center gap-1.5 rounded-lg border border-stone-200 bg-white px-3 py-1.5 text-xs font-semibold text-stone-700 hover:bg-stone-50">
+                      <Save size={12} />
+                      <span>Save Roleplay</span>
+                    </button>
+                    <button
+                      onClick={addRoleplayGoal}
+                      className="bg-stone-800 hover:bg-stone-700 text-white py-1.5 px-3 rounded-lg text-xs font-bold flex items-center space-x-1 cursor-pointer transition-colors duration-200 active:scale-95 border border-stone-800"
+                    >
+                      <Plus size={12} />
+                      <span>Add Goal</span>
+                    </button>
+                  </div>
                 </div>
 
                 <div className="flex flex-col space-y-3 bg-white p-4 rounded-xl border border-stone-200/60 shadow-sm">
                   <div>
-                    <label className="block text-[10px] text-stone-800 font-bold uppercase tracking-wider mb-1.5">Roleplay Title</label>
+                    <label className="block text-[10px] text-stone-800 font-bold uppercase tracking-wider mb-1.5">Lesson Title (Inherited)</label>
+                    <div className="flex items-center gap-2 rounded-lg border border-stone-100 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-700">
+                      <Lock size={11} className="text-stone-400" />
+                      <span>{selectedLesson?.title || "No lesson selected"}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-stone-800 font-bold uppercase tracking-wider mb-1.5">Mobile Roleplay Title</label>
                     <input 
                       type="text" 
                       value={currentRoleplay.title || ""} 
-                      onChange={(e) => setRoleplayMap(prev => ({ ...prev, [activeLessonCode]: { ...currentRoleplay, title: e.target.value } }))}
+                      onChange={(e) => {
+                        setRoleplayMap(prev => ({ ...prev, [activeLessonCode]: { ...currentRoleplay, title: e.target.value } }));
+                        setIsDirty(true);
+                      }}
                       placeholder="e.g. Meeting Someone at a Tea Gathering"
                       className="w-full bg-stone-50/50 border border-stone-200 rounded-lg px-3 py-2 text-xs text-stone-900 font-bold focus:outline-none focus:border-[#C27A5C] transition-colors"
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] text-stone-800 font-bold uppercase tracking-wider mb-1.5">Setup Context (AI Prompt)</label>
+                    <label className="block text-[10px] text-stone-800 font-bold uppercase tracking-wider mb-1.5">Mobile Context Description</label>
                     <textarea 
                       value={currentRoleplay.setup || ""} 
-                      onChange={(e) => setRoleplayMap(prev => ({ ...prev, [activeLessonCode]: { ...currentRoleplay, setup: e.target.value } }))}
-                      placeholder="e.g. You arrive at a casual tea gathering..."
+                      onChange={(e) => {
+                        setRoleplayMap(prev => ({ ...prev, [activeLessonCode]: { ...currentRoleplay, setup: e.target.value } }));
+                        setIsDirty(true);
+                      }}
+                      placeholder="Visible scenario context shown on the Mobile App"
                       rows={3}
                       className="w-full bg-stone-50/50 border border-stone-200 rounded-lg px-3 py-2 text-xs text-stone-900 focus:outline-none focus:border-[#C27A5C] transition-colors resize-none"
                     />
+                    <p className="mt-1 text-[9px] text-stone-500">This is user-facing context. Internal/system prompts are not exposed in this MVP.</p>
                   </div>
                 </div>
               </div>
@@ -1717,6 +2087,14 @@ export default function CurriculumDashboard() {
 
                             {/* Goal (English) */}
                             <td className="py-3 px-4">
+                              <input
+                                ref={element => { goalEnglishRefs.current[goal.id] = element; }}
+                                type="text"
+                                value={goal.title || goal.successCriteria}
+                                onChange={(e) => editRoleplayGoal(goal.id, "title", e.target.value)}
+                                placeholder="Goal title"
+                                className="w-full bg-transparent border border-stone-200 hover:border-stone-400 focus:border-[#C27A5C] rounded-lg px-2 py-1.5 text-xs font-semibold text-stone-900 focus:outline-none transition-colors mb-2"
+                              />
                               <input
                                 type="text"
                                 value={goal.successCriteria}
@@ -1797,7 +2175,7 @@ export default function CurriculumDashboard() {
       </main>
 
       {toast && (
-        <div className={`fixed right-6 top-6 z-50 flex max-w-md items-start gap-3 rounded-xl border bg-white px-4 py-3 text-xs shadow-lg ${
+        <div role="status" className={`fixed right-6 top-6 z-50 flex max-w-md items-start gap-3 rounded-xl border bg-white px-4 py-3 text-xs shadow-lg ${
           toast.type === "success"
             ? "border-emerald-200 text-emerald-800"
             : toast.type === "warning"

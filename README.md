@@ -1,276 +1,167 @@
-# 🎓 Yapsu — Curriculum Management Platform
+# Yapsu Curriculum Management Platform
 
-> **Unified 3-Layer Curriculum Management Pipeline with Localization Overlay**
->
-> Nền tảng quản lý giáo trình ngôn ngữ tập trung, thay thế hoàn toàn quy trình làm việc thủ công trên Excel bằng một Pipeline tự động hóa tích hợp **Gemini AI TTS** và quản lý dữ liệu đồng bộ trên **Supabase**.
+Presentation MVP cho quy trình biên soạn, review và chuẩn bị publish curriculum ngôn ngữ của Yapsu. UI hiện tại được xây dựng từ Meeting Feedback, PRD, Use Cases, Revision Plan, ERD đã xác nhận với app mobile và snapshot dữ liệu Notion.
 
----
+## Trạng thái hiện tại
 
-## Mục lục
+- Frontend: Next.js 16, React 19, TypeScript, Tailwind CSS.
+- Dữ liệu demo: `src/data/mockNotionData.ts`, được export từ Notion.
+- Database source of truth: `ERD Platform.txt`.
+- Chế độ chạy: presentation MVP, state lưu trong browser memory.
+- Chưa kết nối database/API, authentication, storage, TTS hoặc AI QA thật.
 
-- [1. Tổng quan Concept dự án](#1-tổng-quan-concept-dự-án)
-- [2. Kiến trúc 3-Layer Core + Localization Overlay](#2-kiến-trúc-3-layer-core--localization-overlay)
-- [3. Cấu trúc dự án (Project Structure)](#3-cấu-trúc-dự-án-project-structure)
-- [4. Technology Stack](#4-technology-stack)
-- [5. Danh sách Use Case chi tiết](#5-danh-sách-use-case-chi-tiết)
-  - [UC01 + UC02 — Quản lý Ngôn ngữ, Bài học & Audio QA (Unified Dashboard)](#uc01--uc02--quản-lý-ngôn-ngữ-bài-học--audio-qa-unified-dashboard)
-  - [UC03 — Cấu hình Bài tập Drill (Drill Config Editor)](#uc03--cấu-hình-bài-tập-drill-drill-config-editor)
-  - [UC04 — Thiết lập Roleplay (Roleplay Scenario Editor)](#uc04--thiết-lập-roleplay-roleplay-scenario-editor)
-- [6. Sơ đồ tổng quan hệ thống (System Diagrams)](#6-sơ-đồ-tổng-quan-hệ-thống-system-diagrams)
-- [7. Data Model tổng quan](#7-data-model-tổng-quan)
-- [8. Trạng thái hiện tại & Workflow](#8-trạng-thái-hiện-tại--workflow)
-- [9. Cách khởi chạy dự án (Local Development)](#9-cách-khởi-chạy-dự-án-local-development)
+Không còn khái niệm `Language Pair`. Platform quản lý một `LANGUAGE` học và tạo nhiều bản địa hóa theo native language bằng `LOCALIZED_*_OVERLAY`.
 
----
+## Tài liệu chuẩn
 
-## 1. Tổng quan Concept dự án
+| Tài liệu | Vai trò |
+|---|---|
+| `ERD Platform.txt` | Cấu trúc entity, field và relationship chuẩn |
+| `docs/UI-ERD-DATA-MAPPING.md` | Mapping UI → ERD → database fields |
+| `Product Requirements Document.pdf` | Phạm vi và yêu cầu sản phẩm |
+| `MeetingfeedbackUI.html` | Feedback review UI/UX |
+| `Meeting Feedback ERD.pdf` | Feedback về cấu trúc dữ liệu |
+| `MVP-Revision-Plan.html` | Checklist chỉnh sửa MVP |
+| `UC01`–`UC04` PDF/XLSX | Input, action, output và acceptance criteria |
 
-### Vấn đề cần giải quyết
+Khi tài liệu mâu thuẫn, thứ tự ưu tiên là: ERD → Meeting Feedback → PRD/Use Cases → Revision Plan → snapshot Notion.
 
-Yapsu là một ứng dụng học ngôn ngữ trên di động (Mobile App). Trước đây, toàn bộ nội dung giáo trình — từ vựng, câu mẫu, kịch bản lời thoại giáo viên ảo, bài tập tương tác, và kịch bản roleplay — được quản lý **hoàn toàn bằng file Excel** (`[Original] Yapsu AI Curriculum.xlsx`). Quy trình này gây ra:
+## Kiến trúc dữ liệu
 
-- **Thiếu đồng bộ**: Nhiều người chỉnh sửa cùng lúc trên Excel gây conflict.
-- **Thiếu tự động hóa**: Việc tạo audio phát âm, kiểm tra chất lượng (QA), dịch thuật đều làm tay.
-- **Khó mở rộng**: Khi thêm ngôn ngữ mới (Nhật, Hàn…), phải nhân bản sheet thủ công.
-- **Dữ liệu rời rạc**: Không có mối liên kết cấu trúc giữa từ vựng, bài tập, và roleplay.
-
-### Giải pháp: Yapsu Curriculum Management Platform
-
-Platform này là một **giao diện quản trị web (Admin CMS)** cho phép đội ngũ Operator (biên tập viên giáo trình) thực hiện toàn bộ luồng công việc trên một nền tảng duy nhất:
-
-1. **Nhập & chỉnh sửa nội dung giáo trình** gốc (từ vựng, câu mẫu, ngữ pháp, kịch bản tutor).
-2. **Tự động tạo file audio** giọng đọc bản xứ thông qua tích hợp **Gemini TTS API**.
-3. **Kiểm tra chất lượng audio** (QA) trực tiếp trên giao diện bảng tính chính. Cung cấp quy trình 2 bước: AI QA (tự động hóa) và Human QA (xác nhận thủ công).
-4. **Cấu hình bài tập tương tác** (Drill) — luyện nghe nói, điền vào chỗ trống thông qua Token Selection UI, sắp xếp câu.
-5. **Thiết lập kịch bản Roleplay** — bối cảnh hội thoại AI và tiêu chí chấm điểm.
-6. **Dịch thuật đa ngôn ngữ** (Localization Overlay) — phủ bản dịch tiếng Việt lên nội dung gốc.
-
-### Người dùng chính
-
-| Vai trò | Mô tả |
-|---------|-------|
-| **Operator** | Biên tập viên giáo trình — người trực tiếp tạo, chỉnh sửa, và duyệt nội dung trên platform. |
-| **QA Reviewer** | Người nghe audio, đối soát bản dịch, và phê duyệt chất lượng nội dung. |
-| **End-user (Learner)** | Học viên sử dụng Mobile App — **không** tương tác với platform này; họ chỉ tiêu thụ dữ liệu đầu ra. |
-
----
-
-## 2. Kiến trúc 3-Layer Core + Localization Overlay
-
-Hệ thống được thiết kế theo mô hình **3 lớp lõi (3-Layer Core)** kết hợp một **lớp phủ dịch thuật (Localization Overlay)** chạy xuyên suốt:
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                   LOCALIZATION OVERLAY                   │
-│     (Dịch thuật đa ngôn ngữ - phủ lên mọi Layer)       │
-│     VD: Tiếng Việt overlay cho learner UI                │
-├─────────────────────────────────────────────────────────┤
-│                                                         │
-│  ┌───────────┐   ┌───────────────┐   ┌───────────────┐ │
-│  │  LAYER 1  │   │    LAYER 2    │   │    LAYER 3    │ │
-│  │ Languages │──▶│   Lessons &   │──▶│  Interactive  │ │
-│  │ & Pairs   │   │ Content Cards │   │   Modules     │ │
-│  └───────────┘   └───────────────┘   └───────────────┘ │
-│                                                         │
-│  Chọn cặp ngôn   Unified Grid        Drill Config      │
-│  ngữ đích         Editor (UC01+02)    Editor (UC03)     │
-│  (CN→VI, JA→VI)  Vocab, Sentence,    Roleplay Setup    │
-│                   Grammar, Audio QA   Editor (UC04)     │
-│                                                         │
-└─────────────────────────────────────────────────────────┘
+```text
+LANGUAGE
+└── LESSON
+    ├── VOCAB_ITEM / SENTENCE_ITEM / GRAMMAR_ITEM / TOPIC_ITEM
+    ├── GUIDED_LESSON
+    │   └── GUIDED_SEGMENT
+    │       ├── GUIDED_SCRIPT ── AUDIO
+    │       └── GUIDED_CARD ── source content reference
+    ├── DRILL_SET ── DRILL_PART ── DRILL_ITEM
+    ├── EXTRA_DRILL_SET ── EXTRA_DRILL_PART ── EXTRA_DRILL_ITEM
+    ├── ROLEPLAY ── ROLEPLAY_GOAL
+    └── LOCALIZED_*_OVERLAY
 ```
 
-| Layer | Tên | Chức năng | Use Case tương ứng |
-|-------|-----|-----------|-------------------|
-| **Layer 1** | Language & Pairs | Quản lý danh sách ngôn ngữ đích (Chinese, Japanese, Korean) và cặp ngôn ngữ (CN→VI, JA→VI). | Sidebar selector |
-| **Layer 2** | Lessons & Content Cards | Unified Grid Editor — tạo & chỉnh sửa nội dung bài học gốc (Tutor Card, Vocab Card, Sentence Card, Grammar Card) đồng thời quản lý tiến độ Audio QA. | **UC01 & UC02** |
-| **Layer 3** | Interactive Modules | Drill Config Editor, Roleplay Scenario Editor — xử lý nội dung tương tác cho Mobile App. | **UC03, UC04** |
-| **Overlay** | Localization | Phủ bản dịch tiếng bản xứ (VD: tiếng Việt) lên mọi nội dung ở mọi Layer. | Xuyên suốt |
+`AUDIO` tham chiếu source record bằng `sourceDataId` và `sourceDataType`. Main Drill và Extra Drill là hai cấu trúc độc lập. Localization không được ghi trực tiếp đè lên source content.
 
----
+## Workflow
 
-## 3. Cấu trúc dự án (Project Structure)
+### UC01 - Curriculum & Language Editor
 
-```
-Yapsu - Curriculum - Management - Platform/
-│
-├── 📂 src/                           # Source code chính
-│   ├── 📂 app/                       # Next.js App Router
-│   │   ├── globals.css               # CSS theme tokens (Tailwind v4 + CSS vars)
-│   │   ├── layout.tsx                # Root layout (Inter, Lora, Geist Mono fonts)
-│   │   ├── page.tsx                  # Trang chính — render <CurriculumDashboard />
-│   │   └── favicon.ico               # Favicon
-│   │
-│   └── 📂 components/                # React Components
-│       ├── CurriculumDashboard.tsx    # ⭐ Component chính — chứa toàn bộ 3 Tab (UC01-04)
-│       │                              #    Bao gồm: Sidebar, Spreadsheet Grid + Audio QA,
-│       │                              #    Drill Config, Roleplay Setup, MiniAudioPlayer
-│       └── AudioQADashboard.tsx       # (Đã deprecate trong quá trình refactor MVP Revision)
-│
-├── 📄 package.json                   # Dependencies: Next.js 16, React 19, Tailwind v4, lucide-react
-├── 📄 tsconfig.json                  # TypeScript configuration
-├── 📄 next.config.ts                 # Next.js config
-├── 📄 postcss.config.mjs             # PostCSS config (Tailwind)
-├── 📄 eslint.config.mjs              # ESLint config
-│
-├── 📋 Tài liệu nghiệp vụ (Business Documents):
-│   ├── Product Requirements Document.pdf          # PRD tổng quan sản phẩm
-│   ├── ... (các tài liệu UC và sơ đồ MVP)
-│
-├── 📄 AGENTS.md                      # Quy tắc cho AI agents
-├── 📄 README.md                      # ← File tổng quan dự án
-└── 📄 task.md                        # Tiến độ thực hiện các tính năng MVP Revision
-```
+1. Chọn learning language và lesson.
+2. Import CSV/XLSX hoặc thêm Tutor, Vocab, Sentence, Grammar Card.
+3. Preview import; validate schema, required fields, system code và duplicate.
+4. Edit source content và localization trong spreadsheet view.
+5. Reorder bằng drag handle hoặc arrow actions.
+6. Chỉ enable record khi required fields đầy đủ.
+7. Save Draft hoặc Submit Lesson; submit kiểm tra duplicate, localization coverage, audio và QA.
 
-### Cấu trúc Component chính
+System code được sinh tự động và readonly. Add Card tự scroll, highlight, focus field đầu tiên và hiển thị toast có row number. Sửa/xóa source đang được Audio, Drill hoặc Roleplay dùng sẽ cảnh báo dependency.
 
-Component `CurriculumDashboard.tsx` là **trung tâm** của toàn bộ ứng dụng. Nó quản lý:
+### UC02 - Tutor Audio QA
 
-- **State management**: Sử dụng React `useState` cho toàn bộ dữ liệu (excelRowsMap, drillMap, roleplayMap).
-- **3 Tab chính**: Thay vì tách rời Spreadsheet và Audio QA, 2 chức năng này đã được hợp nhất thành một bảng duy nhất (Single Source of Truth), quản lý trơn tru thông qua tab `excel`.
-- **Mock data**: Dữ liệu giáo trình mẫu (từ file Excel gốc) được hard-code để demo — sẵn sàng thay thế bằng Supabase API.
+UC02 dùng chung bảng source với UC01:
 
----
+1. Upload nhiều file audio, match filename với card code; hoặc generate selected/missing audio.
+2. Theo dõi audio source, script version và audio version.
+3. Chạy AI QA cho selected/all eligible records.
+4. Human QA chỉ được Pass/Fail sau AI QA Pass; Fail yêu cầu reason.
+5. Khi script/source thay đổi, audio chuyển `Outdated` và QA bị reset.
 
-## 4. Technology Stack
+Đây là mô phỏng UX. File upload, generation và QA chưa gọi service thật.
 
-| Thành phần | Công nghệ | Phiên bản | Ghi chú |
-|-----------|-----------|-----------|---------|
-| **Framework** | Next.js (App Router) | 16.2.9 | Server Components + Client Components |
-| **UI Library** | React | 19.2.4 | Hooks-based (useState, useEffect, useRef) |
-| **Styling** | Tailwind CSS | v4 | PostCSS plugin |
-| **Icons** | Lucide React | ^1.17.0 | 30+ icons sử dụng |
-| **Backend (planned)** | Supabase | — | PostgreSQL + Row Level Security |
-| **AI (planned)** | Gemini TTS API | — | Text-to-Speech cho audio bài học |
+### UC03 - Drill Editor
 
----
+1. Chọn source card từ Layer 2.
+2. Gán `Not Added`, `Main Drill` hoặc `Extra Drill`.
+3. Source và meaning là readonly, tránh duplicate data.
+4. Chọn drill type: Listen & Repeat, Fill Blank hoặc Sentence Ordering.
+5. Fill Blank chọn một khoảng ký tự liên tục.
+6. Reorder và Save Drill Configuration.
 
-## 5. Danh sách Use Case chi tiết
+Payload backend tương lai phải ghi vào đúng chuỗi `DRILL_*` hoặc `EXTRA_DRILL_*`; không trộn hai loại.
 
-### UC01 + UC02 — Quản lý Ngôn ngữ, Bài học & Audio QA (Unified Dashboard)
+### UC04 - Roleplay Editor
 
-> **Layer**: 1 & 2 | **Tab**: `Curriculum & Audio QA (UC01 + UC02)` | **Mục tiêu**: Bảng dữ liệu thống nhất chứa nội dung giáo trình, audio player và trạng thái QA.
+1. Lesson title được inherit và readonly.
+2. Edit Mobile Roleplay Title và user-facing Context Description.
+3. Add, edit, enable, reorder hoặc remove goals.
+4. Goal active bắt buộc có English description và success criteria.
+5. Save Roleplay tạo output theo `ROLEPLAY` và `ROLEPLAY_GOAL`.
 
-#### Mô tả
+Internal/system prompt không được hiển thị như mobile context. Field `notes` chưa có use case rõ nên không xuất hiện trong editor.
 
-Trình soạn thảo dạng bảng tính tổng hợp toàn bộ Workflow nhập liệu, dịch thuật và kiểm định audio. Việc gộp UC01 (Nhập liệu) và UC02 (Audio QA) giúp Operator theo dõi tiến trình của card mà không phải đổi ngữ cảnh (Single Source of Truth).
+## Dữ liệu Notion
 
-#### Trạng thái Audio (TTS Status State Machine)
-Mỗi card sẽ chứa một trình phát âm thanh mini (Mini Audio Player) và 2 trạng thái QA: `AI QA` và `Human QA`.
-1. Nhấn nút "Generate Missing Audio" để chạy batch qua Gemini TTS.
-2. Cột Audio hiển thị loader hoặc nút Regenerate nếu bị lỗi.
-3. Khi Audio đã tạo, cột AI QA sẽ tự động đánh giá pass/fail theo tiêu chuẩn mô hình.
-4. QA Reviewer kiểm định ở cột Human QA với các nút Pass / Fail trực quan.
+`src/data/mockNotionData.ts` cung cấp:
 
-### UC03 — Cấu hình Bài tập Drill (Drill Config Editor)
+- Source content cho 5 lesson Chinese và 5 lesson Japanese.
+- Drill configuration cho các lesson đã export.
+- Roleplay data cho các Chinese lesson có dữ liệu trong snapshot.
 
-> **Layer**: 3 | **Tab**: `Drill Config (UC03)` | **Mục tiêu**: Tạo bài tập tương tác cho Mobile App từ kho học liệu bài học.
+Lesson chưa có Roleplay trong Notion được hiển thị dưới dạng cấu hình mới, không tạo dữ liệu giả để che coverage gap. ID/code từ snapshot được giữ nguyên để trace về nguồn.
 
-#### Mô tả
-Phân chia "Assignment" thành `Drill` và `Extra Drill`. Đặc biệt, phần Fill-in-the-blank được hỗ trợ bởi **Token Selection UI** — click trực tiếp vào một ký tự trên giao diện để đặt làm chỗ trống mà không cần phải gõ thủ công 3 ô input rời rạc.
+Một số Drill record trong snapshot có `sourceCode: "Unknown"`. Runtime loại các record này khỏi editor vì không thể map an toàn sang Layer 2; platform không đoán source code thay cho dữ liệu nguồn.
 
-### UC04 — Thiết lập Roleplay (Roleplay Scenario Editor)
-
-> **Layer**: 3 | **Tab**: `Roleplay Setup (UC04)` | **Mục tiêu**: Cấu hình kịch bản hội thoại AI và tiêu chí chấm điểm.
-
-Thiết lập Context Prompts cho AI với giới hạn ký tự (1000) và cấu hình danh sách Success Criteria để LLM đối chiếu.
-
----
-
-## 6. Sơ đồ tổng quan hệ thống (System Diagrams)
-
-```mermaid
-flowchart TD
-    A["📋 Excel Gốc<br/>(Yapsu AI Curriculum.xlsx)"] -->|Import| B["🖥 UC01 + UC02: Unified Grid Editor<br/>Layer 1 & 2"]
-
-    B -->|Đồng bộ Vocab/Sentence| D["⚙️ UC03: Drill Config<br/>Layer 3"]
-    B -->|Context bài học| E["💬 UC04: Roleplay Setup<br/>Layer 3"]
-
-    B -->|Audio .m4a + Translation| F["📱 Mobile App<br/>(Learner)"]
-    D -->|Drill JSON Config| F
-    E -->|Roleplay Prompt + Goals| F
-
-    B ---|Gemini TTS API| G["🤖 Gemini AI"]
-
-    subgraph Localization["🌐 Localization Overlay"]
-        direction LR
-        H["CN → VI"] ~~~ I["JA → VI"] ~~~ J["KR → VI"]
-    end
-
-    B -.->|Phủ dịch| Localization
-    D -.->|Phủ dịch| Localization
-    E -.->|Phủ dịch| Localization
-```
-
----
-
-## 7. Data Model tổng quan
-
-Sự thay đổi chính trong ERD là gộp TTS Status, Audio URL, AI QA và Human QA vào chung một đối tượng card gốc (`GUIDED_SEGMENTS` / `VOCAB_ITEMS` v.v...). Các mô hình dữ liệu chính đã được đồng bộ với PRD.
-
-```mermaid
-erDiagram
-    LESSONS ||--o{ CONTENT_ITEMS : "contains"
-    LESSONS ||--|| ROLEPLAYS : "has one"
-    LESSONS ||--o{ DRILL_ITEMS : "practices"
-
-    CONTENT_ITEMS {
-        uuid id PK
-        string code UK
-        string content_type
-        string script_text
-        string reading
-        string meaning_en
-        enum tts_status
-        string audio_url
-        enum ai_qa_status
-        enum human_qa_status
-    }
-
-    DRILL_ITEMS {
-        uuid id PK
-        enum drill_type
-        enum assignment_type
-        string script_text
-        string meaning
-        string source_codes
-    }
-    
-    FILL_BLANK_CONFIGS {
-        uuid id PK
-        uuid drill_item_id FK
-        string prompt_before
-        string answer
-        string prompt_after
-    }
-```
-
----
-
-## 8. Trạng thái hiện tại & Workflow
-
-Hiện tại dự án đang ở giai đoạn **MVP Revision**. Những gì đã được hoàn thành:
-1. **Audio QA Consolidation**: Đã gộp hoàn toàn giao diện Tutor Audio QA rời rạc vào bảng Grid chính (Single Source of Truth), quản lý trạng thái AI QA và Human QA liền mạch.
-2. **Drill Editor Revamp**: Bổ sung `Assignment` (Drill vs Extra Drill) và thiết kế hệ thống **Token Selection UI** thay thế cho các ô nhập liệu thủ công trong cấu trúc Fill-in-the-blank.
-3. **Architecture Mapping**: ERD và PRD đã được đồng bộ để phù hợp với UI thống nhất mới.
-
-**Những gì cần thực hiện tiếp theo**:
-- Triển khai tính năng Drag & Drop để thay đổi thứ tự hàng loạt (Drag and drop reordering)
-- Giao diện thẩm mỹ cao hơn (thêm micro-animations, glassmorphism)
-- Kết nối Backend thực sự với Supabase và Gemini API.
-
----
-
-## 9. Cách khởi chạy dự án (Local Development)
+## Chạy dự án
 
 ```bash
-# 1. Cài đặt dependencies
 npm install
-
-# 2. Chạy development server
 npm run dev
-
-# 3. Mở trình duyệt
-# 👉 http://localhost:3000
 ```
-> **Lưu ý**: Hiện tại dự án đang ở chế độ **Presentation Mockup Mode** — toàn bộ dữ liệu là mock data hard-coded. Chưa có kết nối Supabase backend thật.
+
+Mở `http://127.0.0.1:3000`.
+
+Nếu localhost đang giữ bundle cũ:
+
+```bash
+npm run dev:fresh
+```
+
+Script này xóa `.next` trước khi khởi động development server.
+
+Kiểm tra chất lượng:
+
+```bash
+npm run lint
+npx tsc --noEmit
+npm run build
+npm run test:e2e
+```
+
+`test:e2e` yêu cầu app đang chạy tại `http://127.0.0.1:3000` trong một terminal khác.
+
+## Cấu trúc code chính
+
+```text
+src/app/page.tsx
+src/components/CurriculumDashboard.tsx
+src/data/mockNotionData.ts
+docs/UI-ERD-DATA-MAPPING.md
+ERD Platform.txt
+scripts/clean-next-cache.mjs
+```
+
+`CurriculumDashboard.tsx` hiện chứa view model và interaction của cả UC01–UC04 để presentation dễ theo dõi. Khi tích hợp backend nên tách theo feature và thêm repository/adapter layer, nhưng không thay đổi entity boundaries của ERD.
+
+## Đã hoàn thành
+
+- Audit Meeting Feedback, PRD, ERD, Use Cases và Revision Plan.
+- Loại bỏ `LanguagePair` khỏi runtime code và tài liệu.
+- Mapping chính thức UI → ERD → database fields.
+- UC01 import preview, validation, card actions, reorder, status, enable và dependency warning.
+- UC02 upload/generate audio, versioning, Outdated state, AI QA và Human QA gate.
+- UC03 table editor, Main/Extra assignment, readonly source data và Fill Blank range.
+- UC04 mobile-aligned context, goal editor, validation, reorder và save output.
+- Dùng snapshot Notion làm dữ liệu trình diễn.
+
+## Chưa hoàn thành ở tầng production
+
+- Backend persistence và transaction.
+- Adapter tách localization columns thành `LOCALIZED_*_OVERLAY`.
+- Auth/RBAC và audit log.
+- Object storage, audio upload thật, TTS provider và AI QA service.
+- Publish API đồng bộ sang mobile app.
+- Database integration tests.
+
+Các phần trên là công việc tích hợp production, không phải dữ liệu giả lập trong presentation MVP.

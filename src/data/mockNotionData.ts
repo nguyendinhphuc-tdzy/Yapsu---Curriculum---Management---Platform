@@ -1,5 +1,5 @@
 // Auto-generated from Notion
-import { ExcelRow, DrillItem, Roleplay } from '../components/CurriculumDashboard';
+import type { ExcelRow, DrillItem, Roleplay } from "../components/CurriculumDashboard";
 
 export const initialExcelRows: Record<string, ExcelRow[]> = {
   "CN_L105": [
