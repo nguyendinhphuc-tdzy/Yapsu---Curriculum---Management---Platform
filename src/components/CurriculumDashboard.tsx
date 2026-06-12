@@ -107,6 +107,7 @@ export interface DrillItem {
   meaningEs: string;
   promptBefore?: string;
   promptAfter?: string;
+  choices?: string;
   answer?: string;
   sourceCode: string; // references Vocab/Sentence code
   assignment?: "not_added" | "drill" | "extra_drill";
@@ -116,12 +117,15 @@ export interface RoleplayGoal {
   id: string;
   orderIndex: number;
   successCriteria: string;
+  descriptionEn: string;
   descriptionNative: string;
   isEnabled: boolean;
 }
 
 export interface Roleplay {
   id: string;
+  title: string;
+  setup: string;
   goals: RoleplayGoal[];
 }
 
@@ -655,6 +659,18 @@ export default function CurriculumDashboard() {
     }));
   };
 
+  const reorderDrills = (fromId: string, toId: string) => {
+    setDrillMap(prev => {
+      const arr = [...prev[activeLessonCode]];
+      const fromIndex = arr.findIndex(d => d.id === fromId);
+      const toIndex = arr.findIndex(d => d.id === toId);
+      if (fromIndex === -1 || toIndex === -1) return prev;
+      const [movedItem] = arr.splice(fromIndex, 1);
+      arr.splice(toIndex, 0, movedItem);
+      return { ...prev, [activeLessonCode]: arr };
+    });
+  };
+
   // ----------------------------------------------------
   // TAB 4: ROLEPLAY SETUP ACTIONS (UC04 - Layer 3)
   // ----------------------------------------------------
@@ -665,6 +681,7 @@ export default function CurriculumDashboard() {
       id: `g-${Date.now()}`,
       orderIndex: currentRoleplay.goals.length + 1,
       successCriteria: "",
+      descriptionEn: "",
       descriptionNative: "",
       isEnabled: true
     };
@@ -1357,143 +1374,185 @@ export default function CurriculumDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {currentRows.map((row) => {
-                      const drill = currentDrills.find(d => d.sourceCode === row.source);
-                      const isAdded = !!drill;
-                      const isFillBlank = isAdded && drill.drillType === "fill_blank";
+                    {/* ADDED DRILLS (with Drag and Drop) */}
+                    {currentDrills.map((drill, idx) => {
+                      const row = currentRows.find(r => r.source === drill.sourceCode) || { id: `dummy-${drill.id}`, source: drill.sourceCode };
+                      const isFillBlank = drill.drillType === "fill_blank";
 
                       return (
-                        <React.Fragment key={row.id}>
-                          <tr className={`border-b border-stone-100 transition-colors duration-150 ${isAdded ? 'bg-white hover:bg-stone-50/50' : 'bg-stone-50/30 opacity-70 hover:opacity-100'}`}>
+                        <React.Fragment key={drill.id}>
+                          <tr 
+                            className={`border-b border-stone-100 transition-colors duration-150 bg-white hover:bg-stone-50/50 ${draggedRowId === drill.id ? "opacity-50" : ""}`}
+                            onDragOver={event => {
+                              if (searchQuery.trim() || !draggedRowId || draggedRowId === drill.id) return;
+                              event.preventDefault();
+                              event.dataTransfer.dropEffect = "move";
+                              setDragOverRowId(drill.id);
+                            }}
+                            onDragLeave={() => setDragOverRowId(null)}
+                            onDrop={event => {
+                              event.preventDefault();
+                              if (!draggedRowId || draggedRowId === drill.id) return;
+                              reorderDrills(draggedRowId, drill.id);
+                              setDraggedRowId(null);
+                              setDragOverRowId(null);
+                            }}
+                            style={{
+                              borderTop: dragOverRowId === drill.id ? "2px solid #C27A5C" : undefined
+                            }}
+                          >
                             {/* Source */}
                             <td className="py-3 px-4">
-                              <span className="font-mono text-[10px] font-bold bg-stone-100 py-1 px-2 rounded-lg border border-stone-200 text-stone-900 truncate block text-center">
-                                {row.source || "-"}
-                              </span>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  draggable={!searchQuery.trim()}
+                                  onDragStart={event => {
+                                    if (searchQuery.trim()) {
+                                      event.preventDefault();
+                                      return;
+                                    }
+                                    event.dataTransfer.effectAllowed = "move";
+                                    setDraggedRowId(drill.id);
+                                  }}
+                                  onDragEnd={() => {
+                                    setDraggedRowId(null);
+                                    setDragOverRowId(null);
+                                  }}
+                                  title={searchQuery.trim() ? "Clear search to reorder" : "Drag to reorder"}
+                                  className="cursor-grab rounded p-1 text-stone-600 hover:bg-stone-100 hover:text-stone-700 active:cursor-grabbing disabled:cursor-not-allowed"
+                                >
+                                  <GripVertical size={13} />
+                                </button>
+                                <span className="font-mono text-[10px] font-bold bg-stone-100 py-1 px-2 rounded-lg border border-stone-200 text-stone-900 truncate block text-center w-full">
+                                  {row.source || "-"}
+                                </span>
+                              </div>
                             </td>
 
                             {/* Action */}
                             <td className="py-3 px-4 text-center">
-                              {isAdded ? (
-                                <button 
-                                  onClick={() => deleteDrill(drill.id)}
-                                  className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer inline-flex"
-                                  title="Remove Drill"
-                                >
-                                  <Trash2 size={14} />
-                                </button>
-                              ) : (
-                                <button 
-                                  onClick={() => addDrillFromExcel(row)}
-                                  className="p-1.5 text-[#C27A5C] hover:bg-[#C27A5C]/10 rounded-lg transition-colors cursor-pointer inline-flex font-bold"
-                                  title="Add to Drills"
-                                >
-                                  <Plus size={14} />
-                                </button>
-                              )}
+                              <button 
+                                onClick={() => deleteDrill(drill.id)}
+                                className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer inline-flex"
+                                title="Remove Drill"
+                              >
+                                <Trash2 size={14} />
+                              </button>
                             </td>
 
                             {/* Assignment */}
                             <td className="py-3 px-4">
-                              {isAdded ? (
-                                <select
-                                  value={drill.assignment || "drill"}
-                                  onChange={(e) => handleDrillEdit(drill.id, "assignment", e.target.value as DrillItem["assignment"])}
-                                  className="w-full bg-white border border-[#C27A5C]/30 rounded-lg py-1 px-2 text-[11px] text-stone-800 focus:outline-none focus:border-[#C27A5C] font-semibold text-[#C27A5C]"
-                                >
-                                  <option value="drill">Main Drill</option>
-                                  <option value="extra_drill">Extra Drill</option>
-                                </select>
-                              ) : (
-                                <span className="text-stone-600 text-[10px] italic">Unassigned</span>
-                              )}
+                              <select
+                                value={drill.assignment || "drill"}
+                                onChange={(e) => handleDrillEdit(drill.id, "assignment", e.target.value as DrillItem["assignment"])}
+                                className="w-full bg-white border border-[#C27A5C]/30 rounded-lg py-1 px-2 text-[11px] text-stone-800 focus:outline-none focus:border-[#C27A5C] font-semibold text-[#C27A5C]"
+                              >
+                                <option value="drill">Main Drill</option>
+                                <option value="extra_drill">Extra Drill</option>
+                              </select>
                             </td>
 
                             {/* Drill Type */}
                             <td className="py-3 px-4">
-                              {isAdded ? (
-                                <select
-                                  value={drill.drillType}
-                                  onChange={(e) => handleDrillEdit(drill.id, "drillType", e.target.value as DrillItem["drillType"])}
-                                  className="w-full bg-white border border-stone-200 rounded-lg py-1 px-2 text-[11px] text-stone-800 focus:outline-none focus:border-stone-400"
-                                >
-                                  <option value="listen_repeat">Listen & Repeat</option>
-                                  <option value="fill_blank">Fill in the Blank</option>
-                                  <option value="sentence_order">Sentence Ordering</option>
-                                </select>
-                              ) : (
-                                <span className="text-stone-500">-</span>
-                              )}
+                              <select
+                                value={drill.drillType}
+                                onChange={(e) => handleDrillEdit(drill.id, "drillType", e.target.value as DrillItem["drillType"])}
+                                className="w-full bg-white border border-stone-200 rounded-lg py-1 px-2 text-[11px] text-stone-800 focus:outline-none focus:border-stone-400"
+                              >
+                                <option value="listen_repeat">Listen & Repeat</option>
+                                <option value="fill_blank">Fill in the Blank</option>
+                                <option value="sentence_order">Sentence Ordering</option>
+                              </select>
                             </td>
 
                             {/* Target Script */}
                             <td className="py-3 px-4">
-                              {isAdded ? (
+                              <div className="space-y-2">
                                 <input 
                                   type="text" 
                                   value={drill.scriptText} 
                                   onChange={(e) => handleDrillEdit(drill.id, "scriptText", e.target.value)}
                                   className="w-full bg-transparent border border-stone-200 hover:border-[#C27A5C]/50 focus:border-[#C27A5C] rounded-lg px-2 py-1 text-xs text-stone-800 font-bold focus:outline-none transition-colors"
+                                  placeholder="Script text"
                                 />
-                              ) : (
-                                <span className="text-stone-800 font-bold">{row.source}</span>
-                              )}
+                                {isFillBlank && (
+                                  <>
+                                    <div className="flex space-x-2">
+                                      <input 
+                                        type="text" 
+                                        value={drill.promptBefore || ""} 
+                                        onChange={(e) => handleDrillEdit(drill.id, "promptBefore", e.target.value)}
+                                        placeholder="Prompt Before"
+                                        className="w-1/2 bg-white border border-stone-200 rounded-lg px-2 py-1 text-[10px] text-stone-700 focus:outline-none focus:border-stone-400"
+                                      />
+                                      <input 
+                                        type="text" 
+                                        value={drill.answer || ""} 
+                                        onChange={(e) => handleDrillEdit(drill.id, "answer", e.target.value)}
+                                        placeholder="Answer (Blank)"
+                                        className="w-1/2 bg-stone-100 border border-stone-200 rounded-lg px-2 py-1 text-[10px] text-stone-900 font-bold focus:outline-none focus:border-stone-400"
+                                      />
+                                    </div>
+                                    <div className="flex space-x-2">
+                                      <input 
+                                        type="text" 
+                                        value={drill.promptAfter || ""} 
+                                        onChange={(e) => handleDrillEdit(drill.id, "promptAfter", e.target.value)}
+                                        placeholder="Prompt After"
+                                        className="w-1/2 bg-white border border-stone-200 rounded-lg px-2 py-1 text-[10px] text-stone-700 focus:outline-none focus:border-stone-400"
+                                      />
+                                      <input 
+                                        type="text" 
+                                        value={drill.choices || ""} 
+                                        onChange={(e) => handleDrillEdit(drill.id, "choices", e.target.value)}
+                                        placeholder="Choices (comma separated)"
+                                        className="w-1/2 bg-white border border-stone-200 rounded-lg px-2 py-1 text-[10px] text-stone-700 focus:outline-none focus:border-stone-400"
+                                      />
+                                    </div>
+                                  </>
+                                )}
+                              </div>
                             </td>
 
                             {/* Meaning EN */}
                             <td className="py-3 px-4">
-                              {isAdded ? (
-                                <input 
-                                  type="text" 
-                                  value={drill.meaningEn} 
-                                  onChange={(e) => handleDrillEdit(drill.id, "meaningEn", e.target.value)}
-                                  className="w-full bg-transparent border border-stone-200 hover:border-stone-300 focus:border-stone-400 rounded-lg px-2 py-1 text-xs text-stone-900 focus:outline-none transition-colors"
-                                />
-                              ) : (
-                                <span className="text-stone-600">{row.en || "-"}</span>
-                              )}
+                              <input 
+                                type="text" 
+                                value={drill.meaningEn} 
+                                onChange={(e) => handleDrillEdit(drill.id, "meaningEn", e.target.value)}
+                                className="w-full bg-stone-50 border border-stone-200 hover:border-stone-400 focus:border-[#C27A5C] rounded-lg px-2 py-1 text-[11px] text-stone-700 focus:outline-none transition-colors"
+                              />
                             </td>
 
                             {/* Meaning VN */}
                             <td className="py-3 px-4">
-                              {isAdded ? (
-                                <input 
-                                  type="text" 
-                                  value={drill.meaningVn} 
-                                  onChange={(e) => handleDrillEdit(drill.id, "meaningVn", e.target.value)}
-                                  className="w-full bg-transparent border border-stone-200 hover:border-stone-300 focus:border-stone-400 rounded-lg px-2 py-1 text-xs text-stone-900 focus:outline-none transition-colors"
-                                />
-                              ) : (
-                                <span className="text-stone-600">{row.vn || "-"}</span>
-                              )}
+                              <input 
+                                type="text" 
+                                value={drill.meaningVn} 
+                                onChange={(e) => handleDrillEdit(drill.id, "meaningVn", e.target.value)}
+                                className="w-full bg-stone-50 border border-stone-200 hover:border-stone-400 focus:border-[#C27A5C] rounded-lg px-2 py-1 text-[11px] text-stone-700 focus:outline-none transition-colors"
+                              />
                             </td>
 
                             {/* Meaning KR */}
                             <td className="py-3 px-4">
-                              {isAdded ? (
-                                <input 
-                                  type="text" 
-                                  value={drill.meaningKr} 
-                                  onChange={(e) => handleDrillEdit(drill.id, "meaningKr", e.target.value)}
-                                  className="w-full bg-transparent border border-stone-200 hover:border-stone-300 focus:border-stone-400 rounded-lg px-2 py-1 text-xs text-stone-900 focus:outline-none transition-colors"
-                                />
-                              ) : (
-                                <span className="text-stone-600">{row.kr || "-"}</span>
-                              )}
+                              <input 
+                                type="text" 
+                                value={drill.meaningKr} 
+                                onChange={(e) => handleDrillEdit(drill.id, "meaningKr", e.target.value)}
+                                className="w-full bg-stone-50 border border-stone-200 hover:border-stone-400 focus:border-[#C27A5C] rounded-lg px-2 py-1 text-[11px] text-stone-700 focus:outline-none transition-colors"
+                              />
                             </td>
 
                             {/* Meaning ES */}
                             <td className="py-3 px-4">
-                              {isAdded ? (
-                                <input 
-                                  type="text" 
-                                  value={drill.meaningEs} 
-                                  onChange={(e) => handleDrillEdit(drill.id, "meaningEs", e.target.value)}
-                                  className="w-full bg-transparent border border-stone-200 hover:border-stone-300 focus:border-stone-400 rounded-lg px-2 py-1 text-xs text-stone-900 focus:outline-none transition-colors"
-                                />
-                              ) : (
-                                <span className="text-stone-600">{row.es || "-"}</span>
-                              )}
+                              <input 
+                                type="text" 
+                                value={drill.meaningEs} 
+                                onChange={(e) => handleDrillEdit(drill.id, "meaningEs", e.target.value)}
+                                className="w-full bg-stone-50 border border-stone-200 hover:border-stone-400 focus:border-[#C27A5C] rounded-lg px-2 py-1 text-[11px] text-stone-700 focus:outline-none transition-colors"
+                              />
                             </td>
                           </tr>
 
@@ -1573,18 +1632,43 @@ export default function CurriculumDashboard() {
           {/* TAB 4: ROLEPLAY SETUP VIEW */}
           {activeTab === "roleplay" && (
             <div className="bg-white border border-stone-200/80 rounded-2xl overflow-hidden shadow-none flex flex-col">
-              <div className="p-5 border-b border-stone-100 flex justify-between items-center bg-stone-50/50">
-                <div>
-                  <h4 className="text-xs font-bold text-stone-800 uppercase tracking-wide font-serif">Roleplay Editor</h4>
-                  <p className="text-[10px] text-stone-800 mt-1">Configure goals and success criteria to align with the Mobile App.</p>
+              <div className="p-5 border-b border-stone-100 flex flex-col bg-stone-50/50 space-y-4">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h4 className="text-xs font-bold text-stone-800 uppercase tracking-wide font-serif">Roleplay Editor</h4>
+                    <p className="text-[10px] text-stone-800 mt-1">Configure roleplay context and goals to align with the Mobile App.</p>
+                  </div>
+                  <button
+                    onClick={addRoleplayGoal}
+                    className="bg-stone-800 hover:bg-stone-700 text-white py-1.5 px-3 rounded-lg text-xs font-bold flex items-center space-x-1 cursor-pointer transition-colors duration-200 active:scale-95 border border-stone-800"
+                  >
+                    <Plus size={12} />
+                    <span>Add Goal</span>
+                  </button>
                 </div>
-                <button
-                  onClick={addRoleplayGoal}
-                  className="bg-stone-800 hover:bg-stone-700 text-white py-1.5 px-3 rounded-lg text-xs font-bold flex items-center space-x-1 cursor-pointer transition-colors duration-200 active:scale-95 border border-stone-800"
-                >
-                  <Plus size={12} />
-                  <span>Add Goal</span>
-                </button>
+
+                <div className="flex flex-col space-y-3 bg-white p-4 rounded-xl border border-stone-200/60 shadow-sm">
+                  <div>
+                    <label className="block text-[10px] text-stone-800 font-bold uppercase tracking-wider mb-1.5">Roleplay Title</label>
+                    <input 
+                      type="text" 
+                      value={currentRoleplay.title || ""} 
+                      onChange={(e) => setRoleplayMap(prev => ({ ...prev, [activeLessonCode]: { ...currentRoleplay, title: e.target.value } }))}
+                      placeholder="e.g. Meeting Someone at a Tea Gathering"
+                      className="w-full bg-stone-50/50 border border-stone-200 rounded-lg px-3 py-2 text-xs text-stone-900 font-bold focus:outline-none focus:border-[#C27A5C] transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-stone-800 font-bold uppercase tracking-wider mb-1.5">Setup Context (AI Prompt)</label>
+                    <textarea 
+                      value={currentRoleplay.setup || ""} 
+                      onChange={(e) => setRoleplayMap(prev => ({ ...prev, [activeLessonCode]: { ...currentRoleplay, setup: e.target.value } }))}
+                      placeholder="e.g. You arrive at a casual tea gathering..."
+                      rows={3}
+                      className="w-full bg-stone-50/50 border border-stone-200 rounded-lg px-3 py-2 text-xs text-stone-900 focus:outline-none focus:border-[#C27A5C] transition-colors resize-none"
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className="max-h-[600px] overflow-y-auto overflow-x-auto">
@@ -1637,8 +1721,15 @@ export default function CurriculumDashboard() {
                                 type="text"
                                 value={goal.successCriteria}
                                 onChange={(e) => editRoleplayGoal(goal.id, "successCriteria", e.target.value)}
-                                placeholder="e.g. Speak fluently..."
-                                className="w-full bg-transparent border border-stone-200 hover:border-stone-400 focus:border-[#C27A5C] rounded-lg px-2 py-1.5 text-xs text-stone-900 focus:outline-none transition-colors"
+                                placeholder="Success criteria (for AI)"
+                                className="w-full bg-transparent border border-stone-200 hover:border-stone-400 focus:border-[#C27A5C] rounded-lg px-2 py-1.5 text-xs text-stone-900 focus:outline-none transition-colors mb-2"
+                              />
+                              <input
+                                type="text"
+                                value={goal.descriptionEn}
+                                onChange={(e) => editRoleplayGoal(goal.id, "descriptionEn", e.target.value)}
+                                placeholder="Description (English) e.g. Speak fluently..."
+                                className="w-full bg-stone-50 border border-stone-200 hover:border-stone-400 focus:border-[#C27A5C] rounded-lg px-2 py-1.5 text-[11px] text-stone-700 focus:outline-none transition-colors"
                               />
                             </td>
 
@@ -1648,7 +1739,7 @@ export default function CurriculumDashboard() {
                                 type="text"
                                 value={goal.descriptionNative}
                                 onChange={(e) => editRoleplayGoal(goal.id, "descriptionNative", e.target.value)}
-                                placeholder="e.g. Nói lưu loát..."
+                                placeholder="Description (Native) e.g. Nói lưu loát..."
                                 className="w-full bg-transparent border border-stone-200 hover:border-stone-400 focus:border-[#C27A5C] rounded-lg px-2 py-1.5 text-xs text-stone-900 focus:outline-none transition-colors"
                               />
                             </td>

@@ -3215,11 +3215,14 @@ export const initialDrillItems: Record<string, DrillItem[]> = {
 export const initialRoleplays: Record<string, Roleplay> = {
   "CN_L102": {
     "id": "CN_L102",
+    "title": "Meeting Someone at a Tea Gathering (CN_L102)",
+    "setup": "You arrive at a casual tea gathering and meet a new person at the table. You want to introduce yourself politely, ask their surname, introduce the person beside you, and ask if you may sit down.",
     "goals": [
       {
         "id": "080221ae-8b74-82fe-aa38-81bac90f2817",
         "orderIndex": 1,
         "successCriteria": "Ask if that woman is a teacher",
+        "descriptionEn": "Ask if that woman is a teacher",
         "descriptionNative": "Ask if that woman is a teacher",
         "isEnabled": true
       },
@@ -3227,6 +3230,7 @@ export const initialRoleplays: Record<string, Roleplay> = {
         "id": "227221ae-8b74-8337-86ac-814c47050842",
         "orderIndex": 2,
         "successCriteria": "You are at a language meetup and trying to understand who teaches Chinese. You ask a classmate about two people nearby and answer one simple yes-no question.",
+        "descriptionEn": "You are at a language meetup and trying to understand who teaches Chinese. You ask a classmate about two people nearby and answer one simple yes-no question.",
         "descriptionNative": "You are at a language meetup and trying to understand who teaches Chinese. You ask a classmate about two people nearby and answer one simple yes-no question.",
         "isEnabled": true
       },
@@ -3234,6 +3238,7 @@ export const initialRoleplays: Record<string, Roleplay> = {
         "id": "97b221ae-8b74-8237-9e4a-815619cd2033",
         "orderIndex": 3,
         "successCriteria": "Ask if that man is a teacher",
+        "descriptionEn": "Ask if that man is a teacher",
         "descriptionNative": "Ask if that man is a teacher",
         "isEnabled": true
       },
@@ -3241,6 +3246,7 @@ export const initialRoleplays: Record<string, Roleplay> = {
         "id": "603221ae-8b74-832e-b86e-011d1b193c57",
         "orderIndex": 4,
         "successCriteria": "Say she is a teacher",
+        "descriptionEn": "Say she is a teacher",
         "descriptionNative": "Say she is a teacher",
         "isEnabled": true
       },
@@ -3248,6 +3254,7 @@ export const initialRoleplays: Record<string, Roleplay> = {
         "id": "eee221ae-8b74-82e3-a2d1-01125634495f",
         "orderIndex": 5,
         "successCriteria": "Say no, he is not a teacher",
+        "descriptionEn": "Say no, he is not a teacher",
         "descriptionNative": "Say no, he is not a teacher",
         "isEnabled": true
       }
@@ -3255,11 +3262,14 @@ export const initialRoleplays: Record<string, Roleplay> = {
   },
   "CN_L101": {
     "id": "CN_L101",
+    "title": "Meeting Someone at a Tea Gathering (CN_L101)",
+    "setup": "You arrive at a casual tea gathering and meet a new person at the table. You want to introduce yourself politely, ask their surname, introduce the person beside you, and ask if you may sit down.",
     "goals": [
       {
         "id": "d3d221ae-8b74-82d3-b304-81f3e77fc135",
         "orderIndex": 1,
         "successCriteria": "Say you are a student",
+        "descriptionEn": "Say you are a student",
         "descriptionNative": "Say you are a student",
         "isEnabled": true
       },
@@ -3267,6 +3277,7 @@ export const initialRoleplays: Record<string, Roleplay> = {
         "id": "bb7221ae-8b74-824f-a19a-8174608ab236",
         "orderIndex": 2,
         "successCriteria": "You arrive early for your first Chinese class in Beijing and meet a new classmate before it starts. Your classmate is also a student, not an engineer. You want to greet them, exchange names, and have a simple first conversation using the phrases from this lesson.",
+        "descriptionEn": "You arrive early for your first Chinese class in Beijing and meet a new classmate before it starts. Your classmate is also a student, not an engineer. You want to greet them, exchange names, and have a simple first conversation using the phrases from this lesson.",
         "descriptionNative": "You arrive early for your first Chinese class in Beijing and meet a new classmate before it starts. Your classmate is also a student, not an engineer. You want to greet them, exchange names, and have a simple first conversation using the phrases from this lesson.",
         "isEnabled": true
       },
@@ -3274,6 +3285,7 @@ export const initialRoleplays: Record<string, Roleplay> = {
         "id": "099221ae-8b74-836f-aaa4-81bfdc739776",
         "orderIndex": 3,
         "successCriteria": "Say you are well, thank your classmate, and ask their name",
+        "descriptionEn": "Say you are well, thank your classmate, and ask their name",
         "descriptionNative": "Say you are well, thank your classmate, and ask their name",
         "isEnabled": true
       },
@@ -3281,6 +3293,7 @@ export const initialRoleplays: Record<string, Roleplay> = {
         "id": "792221ae-8b74-82c8-871a-01bbcc5b8bdf",
         "orderIndex": 4,
         "successCriteria": "Ask if your classmate is an engineer",
+        "descriptionEn": "Ask if your classmate is an engineer",
         "descriptionNative": "Ask if your classmate is an engineer",
         "isEnabled": true
       },
@@ -3288,6 +3301,7 @@ export const initialRoleplays: Record<string, Roleplay> = {
         "id": "0ec221ae-8b74-834e-967d-816f1712567b",
         "orderIndex": 5,
         "successCriteria": "Say your name when your classmate asks",
+        "descriptionEn": "Say your name when your classmate asks",
         "descriptionNative": "Say your name when your classmate asks",
         "isEnabled": true
       }
@@ -3295,11 +3309,14 @@ export const initialRoleplays: Record<string, Roleplay> = {
   },
   "CN_L105": {
     "id": "CN_L105",
+    "title": "Meeting Someone at a Tea Gathering (CN_L105)",
+    "setup": "You arrive at a casual tea gathering and meet a new person at the table. You want to introduce yourself politely, ask their surname, introduce the person beside you, and ask if you may sit down.",
     "goals": [
       {
         "id": "340221ae-8b74-83ee-b952-012dad34fe3a",
         "orderIndex": 1,
         "successCriteria": "Say your birthday is June 8",
+        "descriptionEn": "Say your birthday is June 8",
         "descriptionNative": "Say your birthday is June 8",
         "isEnabled": true
       },
@@ -3307,6 +3324,7 @@ export const initialRoleplays: Record<string, Roleplay> = {
         "id": "373221ae-8b74-8336-8a07-01f49566c002",
         "orderIndex": 2,
         "successCriteria": "Say a simple age",
+        "descriptionEn": "Say a simple age",
         "descriptionNative": "Say a simple age",
         "isEnabled": true
       },
@@ -3314,6 +3332,7 @@ export const initialRoleplays: Record<string, Roleplay> = {
         "id": "26c221ae-8b74-83ca-8f72-011693ea6f36",
         "orderIndex": 3,
         "successCriteria": "You are at a small birthday party and talk with a classmate about birthdays and age. You want to ask about their birthday, say your birthday, ask their age, and say an age.",
+        "descriptionEn": "You are at a small birthday party and talk with a classmate about birthdays and age. You want to ask about their birthday, say your birthday, ask their age, and say an age.",
         "descriptionNative": "You are at a small birthday party and talk with a classmate about birthdays and age. You want to ask about their birthday, say your birthday, ask their age, and say an age.",
         "isEnabled": true
       },
@@ -3321,6 +3340,7 @@ export const initialRoleplays: Record<string, Roleplay> = {
         "id": "878221ae-8b74-83d0-b9b9-8132d129d1e5",
         "orderIndex": 4,
         "successCriteria": "Ask when your classmate’s birthday is",
+        "descriptionEn": "Ask when your classmate’s birthday is",
         "descriptionNative": "Ask when your classmate’s birthday is",
         "isEnabled": true
       },
@@ -3328,6 +3348,7 @@ export const initialRoleplays: Record<string, Roleplay> = {
         "id": "275221ae-8b74-8278-827b-81074c66b9ce",
         "orderIndex": 5,
         "successCriteria": "Ask how old your classmate is",
+        "descriptionEn": "Ask how old your classmate is",
         "descriptionNative": "Ask how old your classmate is",
         "isEnabled": true
       }
@@ -3335,11 +3356,14 @@ export const initialRoleplays: Record<string, Roleplay> = {
   },
   "CN_L104": {
     "id": "CN_L104",
+    "title": "Meeting Someone at a Tea Gathering (CN_L104)",
+    "setup": "You arrive at a casual tea gathering and meet a new person at the table. You want to introduce yourself politely, ask their surname, introduce the person beside you, and ask if you may sit down.",
     "goals": [
       {
         "id": "b4d221ae-8b74-83ca-baa9-81c2dcfff92a",
         "orderIndex": 1,
         "successCriteria": "Say this is your dad",
+        "descriptionEn": "Say this is your dad",
         "descriptionNative": "Say this is your dad",
         "isEnabled": true
       },
@@ -3347,6 +3371,7 @@ export const initialRoleplays: Record<string, Roleplay> = {
         "id": "832221ae-8b74-83fb-b3b4-019891f8e527",
         "orderIndex": 2,
         "successCriteria": "Say he is your younger brother",
+        "descriptionEn": "Say he is your younger brother",
         "descriptionNative": "Say he is your younger brother",
         "isEnabled": true
       },
@@ -3354,6 +3379,7 @@ export const initialRoleplays: Record<string, Roleplay> = {
         "id": "47a221ae-8b74-8270-b015-819782382bce",
         "orderIndex": 3,
         "successCriteria": "You show a classmate a family photo before dinner. You want to point out your dad, mom, younger brother, and one classmate or friend in the picture.",
+        "descriptionEn": "You show a classmate a family photo before dinner. You want to point out your dad, mom, younger brother, and one classmate or friend in the picture.",
         "descriptionNative": "You show a classmate a family photo before dinner. You want to point out your dad, mom, younger brother, and one classmate or friend in the picture.",
         "isEnabled": true
       },
@@ -3361,6 +3387,7 @@ export const initialRoleplays: Record<string, Roleplay> = {
         "id": "14d221ae-8b74-83d5-a311-01eb31170878",
         "orderIndex": 4,
         "successCriteria": "Say that is your mom",
+        "descriptionEn": "Say that is your mom",
         "descriptionNative": "Say that is your mom",
         "isEnabled": true
       },
@@ -3368,6 +3395,7 @@ export const initialRoleplays: Record<string, Roleplay> = {
         "id": "992221ae-8b74-8376-980c-015aa3414c65",
         "orderIndex": 5,
         "successCriteria": "Say she is your classmate or friend",
+        "descriptionEn": "Say she is your classmate or friend",
         "descriptionNative": "Say she is your classmate or friend",
         "isEnabled": true
       }
@@ -3375,11 +3403,14 @@ export const initialRoleplays: Record<string, Roleplay> = {
   },
   "CN_L103": {
     "id": "CN_L103",
+    "title": "Meeting Someone at a Tea Gathering (CN_L103)",
+    "setup": "You arrive at a casual tea gathering and meet a new person at the table. You want to introduce yourself politely, ask their surname, introduce the person beside you, and ask if you may sit down.",
     "goals": [
       {
         "id": "315221ae-8b74-82cf-b4a5-01867c6ad237",
         "orderIndex": 1,
         "successCriteria": "Greet the person and ask their name",
+        "descriptionEn": "Greet the person and ask their name",
         "descriptionNative": "Greet the person and ask their name",
         "isEnabled": true
       },
@@ -3387,6 +3418,7 @@ export const initialRoleplays: Record<string, Roleplay> = {
         "id": "446221ae-8b74-83dc-a5af-01ce020890cd",
         "orderIndex": 2,
         "successCriteria": "Say whether you are Chinese or not",
+        "descriptionEn": "Say whether you are Chinese or not",
         "descriptionNative": "Say whether you are Chinese or not",
         "isEnabled": true
       },
@@ -3394,6 +3426,7 @@ export const initialRoleplays: Record<string, Roleplay> = {
         "id": "6d6221ae-8b74-82f0-aa1b-0118926e6ff4",
         "orderIndex": 3,
         "successCriteria": "Ask what nationality they are",
+        "descriptionEn": "Ask what nationality they are",
         "descriptionNative": "Ask what nationality they are",
         "isEnabled": true
       },
@@ -3401,6 +3434,7 @@ export const initialRoleplays: Record<string, Roleplay> = {
         "id": "b51221ae-8b74-8316-b550-8198917888a3",
         "orderIndex": 4,
         "successCriteria": "You meet someone at an international student event in China. You want to ask their name, ask about nationality, and share whether you are Chinese.",
+        "descriptionEn": "You meet someone at an international student event in China. You want to ask their name, ask about nationality, and share whether you are Chinese.",
         "descriptionNative": "You meet someone at an international student event in China. You want to ask their name, ask about nationality, and share whether you are Chinese.",
         "isEnabled": true
       },
@@ -3408,6 +3442,7 @@ export const initialRoleplays: Record<string, Roleplay> = {
         "id": "ce9221ae-8b74-83be-8b65-8133ac7ef1de",
         "orderIndex": 5,
         "successCriteria": "Ask if they are Chinese",
+        "descriptionEn": "Ask if they are Chinese",
         "descriptionNative": "Ask if they are Chinese",
         "isEnabled": true
       }
