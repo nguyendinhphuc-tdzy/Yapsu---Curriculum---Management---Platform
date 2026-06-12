@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import { 
   Database, 
   Volume2, 
@@ -1276,13 +1277,13 @@ export default function CurriculumDashboard() {
                       event.target.value = "";
                     }}
                   />
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
+                  <Link
+                    href="/import"
                     className="flex items-center gap-1.5 rounded-lg border border-stone-200 bg-white px-3 py-1.5 font-medium text-stone-700 transition-colors hover:bg-stone-50"
                   >
                     <FileSpreadsheet size={12} />
                     <span>Import Curriculum</span>
-                  </button>
+                  </Link>
                   <button
                     onClick={saveDraft}
                     disabled={!isDirty}
