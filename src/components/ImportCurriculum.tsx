@@ -79,10 +79,13 @@ export default function ImportCurriculum() {
         currentSection = "overall"; // Reset section for new lesson
         currentLessonGoal = ""; // Reset goal
         
-        const match = col0.match(/^L\d+/);
+        const match = col0.match(/^L\d+-(\d+)/);
         if (match) {
-          currentLevel = match[0];
-          if (level === "Unknown") setLevel(match[0]);
+          const lessonNum = parseInt(match[1], 10);
+          currentLevel = `L${lessonNum}`;
+        } else {
+          const fallbackMatch = col0.match(/^L\d+/);
+          if (fallbackMatch) currentLevel = fallbackMatch[0];
         }
         continue;
       }
@@ -107,6 +110,15 @@ export default function ImportCurriculum() {
       if (col0.toLowerCase() === "sentences") { currentSection = "sentence"; continue; }
       if (col0.toLowerCase() === "grammar") { currentSection = "grammar"; continue; }
       if (col0.toLowerCase() === "guided script") { currentSection = "guided_script"; continue; }
+
+      // Detect Level for Import Summary
+      if (col0.toLowerCase().includes("_hsk") && row[3]) {
+        const topLevel = String(row[3]).trim();
+        if (level === "Unknown" || level === "Unknown" /* force state update logic safe */) {
+           setLevel(topLevel);
+        }
+        continue;
+      }
 
       if (col0.toLowerCase() === "code") continue; // Skip header row
 
