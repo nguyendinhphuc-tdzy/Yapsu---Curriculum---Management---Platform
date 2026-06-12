@@ -10,8 +10,7 @@ import {
   Plus, 
   Trash2,
   Info,
-  ArrowUp,
-  ArrowDown,
+  GripVertical,
   X
 } from "lucide-react";
 import Link from "next/link";
@@ -37,8 +36,11 @@ export default function ImportCurriculum() {
   const [newColumnName, setNewColumnName] = useState("");
   const [fileName, setFileName] = useState("");
   const [lessonCode, setLessonCode] = useState("");
+  const [importedLessonsCount, setImportedLessonsCount] = useState(0);
   const [level, setLevel] = useState("Unknown");
   const [warningPopup, setWarningPopup] = useState<{ isOpen: boolean, message: string, onConfirm: () => void } | null>(null);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -132,6 +134,21 @@ export default function ImportCurriculum() {
       }
     }
 
+    // Detect unique lessons from the old codes
+    const lessonSet = new Set<string>();
+    newRows.forEach(row => {
+      // E.g. CN_L401_V1 -> CN_L401
+      const match = row.oldCode.match(/^(.*?)_[VSGA]\d+$/);
+      if (match) {
+        lessonSet.add(match[1]);
+      } else if (row.oldCode.includes("_")) {
+        lessonSet.add(row.oldCode.split("_").slice(0, 2).join("_"));
+      } else {
+        lessonSet.add(row.oldCode);
+      }
+    });
+
+    setImportedLessonsCount(lessonSet.size);
     setParsedData(newRows);
   };
 
@@ -169,21 +186,23 @@ export default function ImportCurriculum() {
     }));
   };
 
-  const confirmMoveRow = (index: number, direction: -1 | 1) => {
-    if (index + direction < 0 || index + direction >= parsedData.length) return;
-    
+  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    setDragOverIndex(null);
+    if (draggedIndex === null || draggedIndex === dropIndex) return;
+
     setWarningPopup({
       isOpen: true,
       message: "Changing the order of this row will alter its future generated System Code sequence (e.g. V1 becomes V2). This may invalidate existing Drill or Audio mappings that rely on the original sequence. Do you want to proceed?",
       onConfirm: () => {
         setParsedData(prev => {
           const newData = [...prev];
-          const temp = newData[index];
-          newData[index] = newData[index + direction];
-          newData[index + direction] = temp;
+          const [removed] = newData.splice(draggedIndex, 1);
+          newData.splice(dropIndex, 0, removed);
           return newData;
         });
         setWarningPopup(null);
+        setDraggedIndex(null);
       }
     });
   };
@@ -296,6 +315,8 @@ export default function ImportCurriculum() {
                     <p className="text-xs text-stone-500 mb-4">
                       Lesson Code: <span className="font-mono font-bold text-stone-800 bg-stone-100 px-1.5 py-0.5 rounded">{lessonCode}</span>
                       <span className="mx-3 text-stone-300">|</span>
+                      Importing: <span className="font-bold text-stone-800">{importedLessonsCount} Lessons</span>
+                      <span className="mx-3 text-stone-300">|</span>
                       Level: <span className="font-bold text-stone-800">{level}</span>
                     </p>
                     <div className="flex space-x-6 text-xs">
@@ -389,14 +410,28 @@ export default function ImportCurriculum() {
                             </div>
                           </th>
                         ))}
-                        <th className="py-3 px-4 w-32">Impacts</th>
-                        <th className="py-3 px-4 w-24 text-center">Actions</th>
+                        <th className="py-3 px-4 w-40">Impacts</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-stone-100">
                       {parsedData.map((row, idx) => (
-                        <tr key={row.id} className="hover:bg-stone-50/50 transition-colors">
-                          <td className="py-3 px-4 font-mono font-bold text-stone-400">{idx + 1}</td>
+                        <tr 
+                          key={row.id} 
+                          draggable
+                          onDragStart={() => setDraggedIndex(idx)}
+                          onDragOver={(e) => { e.preventDefault(); setDragOverIndex(idx); }}
+                          onDragLeave={() => setDragOverIndex(null)}
+                          onDrop={(e) => handleDrop(e, idx)}
+                          className={`hover:bg-stone-50/50 transition-colors ${dragOverIndex === idx ? "bg-stone-100 border-t-2 border-t-amber-400" : ""}`}
+                        >
+                          <td className="py-3 px-4">
+                            <div className="flex items-center space-x-2">
+                              <div className="cursor-grab active:cursor-grabbing text-stone-300 hover:text-stone-600 transition-colors">
+                                <GripVertical size={16} />
+                              </div>
+                              <span className="font-mono font-bold text-stone-400">{idx + 1}</span>
+                            </div>
+                          </td>
                           <td className="py-3 px-4">
                             <span className="inline-flex items-center px-2 py-0.5 rounded text-[9px] font-bold bg-stone-100 text-stone-600 uppercase">
                               {row.type}
@@ -425,11 +460,7 @@ export default function ImportCurriculum() {
                               </span>
                             ))}
                           </td>
-                          <td className="py-3 px-4">
-                            <div className="flex items-center justify-center space-x-1.5 text-stone-400">
-                              <button onClick={() => confirmMoveRow(idx, -1)} disabled={idx === 0} className="p-1 hover:bg-stone-100 hover:text-stone-800 rounded disabled:opacity-30 disabled:hover:bg-transparent transition-colors"><ArrowUp size={14}/></button>
-                              <button onClick={() => confirmMoveRow(idx, 1)} disabled={idx === parsedData.length - 1} className="p-1 hover:bg-stone-100 hover:text-stone-800 rounded disabled:opacity-30 disabled:hover:bg-transparent transition-colors"><ArrowDown size={14}/></button>
-                            </div>
+                            ))}
                           </td>
                         </tr>
                       ))}
