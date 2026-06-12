@@ -42,7 +42,7 @@ export default function ImportCurriculum() {
   const [lessonCode, setLessonCode] = useState("");
   const [importedLessonsCount, setImportedLessonsCount] = useState(0);
   const [level, setLevel] = useState("Unknown");
-  const [warningPopup, setWarningPopup] = useState<{ isOpen: boolean, message: string, onConfirm: () => void } | null>(null);
+  const [warningPopup, setWarningPopup] = useState<{ isOpen: boolean, message: string, onConfirm: () => void, onCancel?: () => void } | null>(null);
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -206,6 +206,37 @@ export default function ImportCurriculum() {
     }));
   };
 
+  const handleEditClick = (row: ParsedRow, isEditing: boolean) => {
+    if (!isEditing) {
+      setEditingRowId(row.id);
+      return;
+    }
+    
+    // Check if lessonName changed and differs from others in the same lesson
+    const othersInLesson = parsedData.filter(r => r.lessonCode === row.lessonCode && r.id !== row.id);
+    const othersWithDifferentName = othersInLesson.filter(r => r.lessonName !== row.lessonName);
+    
+    if (othersWithDifferentName.length > 0) {
+      setWarningPopup({
+        isOpen: true,
+        message: `You've changed the lesson name to "${row.lessonName}". Do you want to apply this new name to all other items in lesson ${row.lessonCode}?`,
+        onConfirm: () => {
+          setParsedData(prev => prev.map(r => 
+            r.lessonCode === row.lessonCode ? { ...r, lessonName: row.lessonName } : r
+          ));
+          setWarningPopup(null);
+          setEditingRowId(null);
+        },
+        onCancel: () => {
+          setWarningPopup(null);
+          setEditingRowId(null);
+        }
+      });
+    } else {
+      setEditingRowId(null);
+    }
+  };
+
   // Rule Analysis
   const vocabCount = parsedData.filter(r => r.type === "vocab").length;
   const sentenceCount = parsedData.filter(r => r.type === "sentence").length;
@@ -226,7 +257,10 @@ export default function ImportCurriculum() {
                 <p className="text-xs text-stone-600 leading-relaxed mb-6">{warningPopup.message}</p>
                 <div className="flex justify-end gap-3">
                   <button 
-                    onClick={() => setWarningPopup(null)}
+                    onClick={() => {
+                      if (warningPopup.onCancel) warningPopup.onCancel();
+                      setWarningPopup(null);
+                    }}
                     className="px-4 py-2 text-xs font-semibold text-stone-600 hover:bg-stone-100 rounded-lg transition-colors"
                   >
                     Cancel
@@ -425,7 +459,7 @@ export default function ImportCurriculum() {
                           <td className="py-3 px-4">
                             <div className="flex items-center space-x-2">
                               <button 
-                                onClick={() => setEditingRowId(isEditing ? null : row.id)}
+                                onClick={() => handleEditClick(row, isEditing)}
                                 className={`p-1.5 rounded-lg transition-colors ${isEditing ? "bg-emerald-100 text-emerald-700" : "text-stone-400 hover:bg-stone-100 hover:text-stone-800"}`}
                               >
                                 {isEditing ? <Check size={14} /> : <Pencil size={14} />}
@@ -437,9 +471,17 @@ export default function ImportCurriculum() {
                             <span className="font-bold text-stone-600">{row.level}</span>
                           </td>
                           <td className="py-3 px-4">
-                            <div className="flex flex-col">
+                            <div className="flex flex-col space-y-1">
                               <span className="font-mono text-[10px] text-stone-500">{row.lessonCode}</span>
-                              <span className="text-xs font-medium text-stone-800 truncate w-40" title={row.lessonName}>{row.lessonName}</span>
+                              {isEditing ? (
+                                <input
+                                  value={row.lessonName}
+                                  onChange={(e) => handleDataChange(row.id, "lessonName", e.target.value)}
+                                  className="w-40 bg-white border border-stone-300 rounded px-2 py-1 text-xs focus:border-stone-500 focus:outline-none"
+                                />
+                              ) : (
+                                <span className="text-xs font-medium text-stone-800 truncate w-40" title={row.lessonName}>{row.lessonName}</span>
+                              )}
                             </div>
                           </td>
                           <td className="py-3 px-4">
