@@ -460,8 +460,6 @@ export default function ImportCurriculum() {
                               </span>
                             ))}
                           </td>
-                            ))}
-                          </td>
                         </tr>
                       ))}
                     </tbody>
